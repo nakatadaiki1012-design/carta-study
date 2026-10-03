@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>百人一首 道場</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Yuji+Syuku&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14161d; --panel:#1f232e; --panel2:#2a2f3d; --line:#3a4153;
+    --text:#f1ece0; --sub:#a9a493; --accent:#d9a441; --accent2:#c0392b;
+    --good:#4fbf7a; --miss:#e8584f;
+    --washi:#fbf6e6; --ink:#1b1712; --edge:#2e5f3a; --edge2:#1f4428;
+    --card-font:"Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif;
+    color-scheme:dark;
+  }
+  body.brush{ --card-font:"Yuji Syuku","Shippori Mincho B1","Hiragino Mincho ProN","Yu Mincho",serif; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0;}
+  body{
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,system-ui,sans-serif;
+    background:var(--bg); color:var(--text); line-height:1.55; min-height:100vh;
+  }
+  .wrap{max-width:1100px; margin:0 auto; padding:12px 16px 40px;}
+  header{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  header h1{font-family:var(--card-font); font-size:1.45rem; margin:0; letter-spacing:.08em; cursor:pointer;}
+  header h1 small{font-family:inherit; font-size:.75rem; color:var(--sub); letter-spacing:0; margin-left:6px;}
+  button{
+    font-family:inherit; cursor:pointer; border:none; border-radius:10px;
+    padding:10px 16px; font-size:.95rem; font-weight:700; color:#231a08; background:var(--accent);
+    transition:filter .12s, transform .05s;
+  }
+  button:hover{filter:brightness(1.08);} button:active{transform:translateY(1px);}
+  button.sec{background:var(--panel2); color:var(--text); border:1px solid var(--line);}
+  button.ghost{background:transparent; color:var(--sub); border:1px solid var(--line); padding:7px 12px; font-weight:500;}
+  button.good{background:var(--good); color:#08210f;}
+  button.bad{background:var(--miss); color:#2a0705;}
+  button:disabled{opacity:.4; cursor:not-allowed;}
+  .btns{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px;}
+  .sub{color:var(--sub); font-size:.85rem;}
+  .hidden{display:none !important;}
+  select{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:.95rem; max-width:100%;}
+  label.ctl{display:flex; flex-direction:column; gap:4px; font-size:.78rem; color:var(--sub);}
+  .chk{display:flex; align-items:center; gap:7px; font-size:.9rem; cursor:pointer;}
+  .chk input{width:18px; height:18px; accent-color:var(--accent);}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;}
+
+  /* ===== ホーム ===== */
+  .modes{display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px;}
+  .mode{
+    text-align:left; background:var(--panel); color:var(--text); border:1px solid var(--line);
+    border-radius:16px; padding:18px; display:flex; gap:14px; align-items:flex-start; font-weight:500;
+  }
+  .mode:hover{border-color:var(--accent); filter:none;}
+  .mode .lv{font-size:.75rem; font-weight:700; padding:2px 9px; border-radius:99px; display:inline-block; margin-bottom:4px;}
+  .mode h2{margin:0 0 4px; font-size:1.2rem; font-family:var(--card-font);}
+  .mode p{margin:0; font-size:.85rem; color:var(--sub);}
+  .mode .mini{flex:0 0 auto; width:56px;}
+  .lv1{background:#2f6b45; color:#d9ffe6;} .lv2{background:#7a5a1c; color:#ffeccc;} .lv3{background:#7c2a24; color:#ffd9d4;}
+  .progress{height:8px; background:var(--panel2); border-radius:99px; overflow:hidden;}
+  .progress i{display:block; height:100%; background:linear-gradient(90deg,var(--good),var(--accent)); width:0;}
+
+  /* ===== 取り札（本物風） ===== */
+  .tori{
+    container-type:inline-size; position:relative; aspect-ratio:52/73; width:100%;
+    border-radius:5px; padding:3.5%;
+    background:linear-gradient(160deg,var(--edge),var(--edge2));
+    box-shadow:0 2px 0 #0d2413, 0 4px 8px rgba(0,0,0,.35);
+    user-select:none; cursor:pointer; transition:transform .12s, opacity .35s, box-shadow .2s;
+  }
+  .tori .face{
+    width:100%; height:100%; border-radius:3px; position:relative; overflow:hidden;
+    background:
+      radial-gradient(circle at 20% 15%, rgba(255,255,255,.7), transparent 45%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .45  0 0 0 0 .38  0 0 0 0 .25  0 0 0 .09 0'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>"),
+      var(--washi);
+    box-shadow:inset 0 0 0 1px rgba(80,60,20,.18), inset 0 0 12px rgba(150,120,60,.18);
+    writing-mode:vertical-rl; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:5%;
+    font-family:var(--card-font); color:var(--ink); font-weight:800;
+    font-size:16cqw; line-height:1.12; padding:7% 5%;
+  }
+  .tori .col{display:block; white-space:nowrap;}
+  .tori .col:nth-child(2){padding-top:.35em;}
+  .tori .col:nth-child(3){padding-top:.7em;}
+  .tori.back .face{background:repeating-linear-gradient(45deg,#2c5b37 0 6px,#285233 6px 12px); box-shadow:none;}
+  .tori.back .face *{display:none;}
+  .tori .hint{
+    position:absolute; left:50%; bottom:-2px; transform:translate(-50%,100%);
+    font-size:11px; font-weight:700; color:#fff7d6; background:rgba(0,0,0,.55); padding:0 5px; border-radius:6px;
+    white-space:nowrap; writing-mode:horizontal-tb; font-family:sans-serif; pointer-events:none;
+  }
+  .tori.flip{transform:rotate(180deg);}
+  .tori.flip .hint{transform:translate(-50%,100%) rotate(180deg);}
+  .tori:hover{box-shadow:0 2px 0 #0d2413, 0 0 0 3px rgba(217,164,65,.6);}
+  .tori.ok{box-shadow:0 0 0 4px var(--good), 0 0 20px var(--good);}
+  .tori.ng{animation:shake .35s; box-shadow:0 0 0 4px var(--miss);}
+  .tori.reveal{box-shadow:0 0 0 4px var(--accent), 0 0 22px var(--accent); animation:pulse 1s infinite;}
+  .tori.gone{opacity:0; transform:scale(.6) translateY(-20px); pointer-events:none;}
+  .tori.flip.gone{transform:rotate(180deg) scale(.6) translateY(20px);}
+  @keyframes shake{0%,100%{translate:0}25%{translate:-6px}75%{translate:6px}}
+  @keyframes pulse{50%{box-shadow:0 0 0 4px var(--accent), 0 0 4px var(--accent);}}
+
+  /* ===== 読み札 ===== */
+  .yomi{
+    container-type:inline-size; aspect-ratio:52/73; width:100%; border-radius:5px; padding:3.5%;
+    background:linear-gradient(160deg,#6b4a1c,#4a3010); box-shadow:0 4px 10px rgba(0,0,0,.4);
+  }
+  .yomi .face{
+    width:100%; height:100%; border-radius:3px; position:relative; overflow:hidden;
+    background:
+      radial-gradient(circle at 25% 12%, rgba(255,255,255,.6), transparent 45%),
+      linear-gradient(#e9c97a 0 7%, #c9a14e 7% 7.8%, transparent 7.8%), var(--washi);
+    box-shadow:inset 0 0 12px rgba(150,120,60,.2);
+    font-family:var(--card-font); color:var(--ink);
+  }
+  .yomi .no{position:absolute; top:.6%; left:0; right:0; text-align:center; font-size:5.2cqw; font-weight:800; color:#5a3a12;}
+  .yomi .txt{
+    position:absolute; top:9%; right:6%; left:6%; height:52%;
+    writing-mode:vertical-rl; display:flex; flex-direction:column; align-items:flex-start; gap:2.5%;
+  }
+  .yomi .author{font-size:7.4cqw; font-weight:800; color:#5a2a12; padding-top:1%;}
+  .yomi .poem{font-size:6.9cqw; font-weight:600; line-height:1.4;}
+  .yomi .poem span{display:block; white-space:nowrap;}
+  .yomi .poem span:nth-child(2){padding-top:.8em;} .yomi .poem span:nth-child(3){padding-top:1.6em;}
+  .yomi .poem span:nth-child(4){padding-top:.4em;} .yomi .poem span:nth-child(5){padding-top:1.2em;}
+  .yomi .poem span.hid{color:transparent; position:relative;}
+  .yomi .poem span.hid::before{content:""; position:absolute; inset:.1em .25em; border-radius:.3em; background:repeating-linear-gradient(0deg, rgba(120,95,50,.16) 0 .45em, transparent .45em .7em);}
+  .yomi .kasen{position:absolute; left:0; right:0; bottom:0; width:100%; height:44%;}
+
+  mark.kim{background:none; color:var(--accent2); font-weight:900; border-bottom:2px solid var(--accent2);}
+
+  /* ===== 覚える ===== */
+  .tabs{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .tabs button{background:var(--panel2); color:var(--sub); border:1px solid var(--line); font-weight:600; padding:8px 14px;}
+  .tabs button.on{background:var(--accent); color:#231a08; border-color:var(--accent);}
+  .flash{display:grid; grid-template-columns:minmax(150px,240px) minmax(130px,200px); gap:20px; justify-content:center; align-items:start; margin:6px 0 14px;}
+  .flash .lbl{text-align:center; font-size:.75rem; color:var(--sub); margin-bottom:5px;}
+  .info{text-align:center;}
+  .info .kana{font-family:var(--card-font); font-size:1.25rem; letter-spacing:.05em; word-break:keep-all;}
+  .info .kana.shimo{color:var(--sub);}
+  .badge{display:inline-block; font-size:.75rem; font-weight:700; border-radius:99px; padding:2px 10px; background:var(--panel2); border:1px solid var(--line);}
+  .badge.k{background:#5d1f1a; border-color:#8c332b; color:#ffd8d2;}
+  .quiz-q{text-align:center; font-family:var(--card-font); font-size:1.35rem; margin:6px 0 12px; min-height:2.2em;}
+  .choices{display:grid; grid-template-columns:repeat(4,minmax(0,120px)); gap:14px; justify-content:center;}
+  .feedback{text-align:center; font-weight:800; font-size:1.15rem; min-height:1.8em; margin:10px 0;}
+  .feedback.ok{color:var(--good);} .feedback.ng{color:var(--miss);}
+  .list{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:8px;}
+  .list .item{background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:9px 12px; display:flex; gap:10px; cursor:pointer;}
+  .list .item .n{font-weight:800; color:var(--accent); min-width:2.2em;}
+  .list .item .t{font-family:var(--card-font); font-size:.95rem;}
+  .list .item .a{font-size:.75rem; color:var(--sub);}
+  .list .item.mem{border-color:#2f6b45;}
+  .list .item.mem .n::after{content:" ✔"; color:var(--good);}
+  .mic{font-size:1.1rem; padding:14px 22px; border-radius:99px;}
+  .mic.rec{background:var(--miss); color:#fff; animation:pulse2 1s infinite;}
+  @keyframes pulse2{50%{filter:brightness(1.3);}}
+  .heard{min-height:2em; text-align:center; font-family:var(--card-font); font-size:1.15rem; margin:10px 0;}
+
+  /* ===== 対戦（取る・早取り） ===== */
+  .reader{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:rgba(20,22,29,.94); backdrop-filter:blur(6px);
+    border:1px solid var(--line); border-radius:14px; padding:10px 14px; margin-bottom:10px;
+  }
+  .reader .top{display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; font-size:.85rem; color:var(--sub);}
+  .reader .top b{color:var(--text);}
+  .reader .line{font-family:var(--card-font); font-size:clamp(1.15rem,4.6vw,1.7rem); min-height:1.6em; letter-spacing:.06em; margin-top:2px;}
+  .reader .line .shimo{color:var(--sub); font-size:.8em; margin-left:.6em;}
+  .reader .msg{min-height:1.5em; font-weight:800;}
+  .reader .msg.ok{color:var(--good);} .reader .msg.ng{color:var(--miss);} .reader .msg.info{color:var(--accent);}
+  .tatami{
+    border-radius:10px; padding:16px 12px 22px;
+    background:
+      repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 2px, transparent 2px 5px),
+      linear-gradient(#c7c27a,#b5ad62);
+    border:6px solid #2d3b26; box-shadow:inset 0 0 30px rgba(60,50,0,.35);
+  }
+  .jin{display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--cw,64px),1fr)); gap:14px 6px;}
+  .jin + .jinlbl{border-top:2px dashed rgba(60,50,10,.35); padding-top:22px;}
+  .jinlbl{font-size:.72rem; font-weight:700; color:#3e3a14; margin:-6px 0 22px;}
+  .jin + .jinlbl{margin-top:14px; margin-bottom:6px;}
+  .result-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:12px 0;}
+  .stat{background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:12px; text-align:center;}
+  .stat b{display:block; font-size:1.6rem;}
+  .stat span{font-size:.78rem; color:var(--sub);}
+  table.log{width:100%; border-collapse:collapse; font-size:.85rem;}
+  table.log td,table.log th{border-bottom:1px solid var(--line); padding:6px 4px; text-align:left;}
+  table.log th{color:var(--sub); font-weight:600;}
+
+  dialog{background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:16px; padding:18px; width:min(560px,calc(100vw - 32px));}
+  dialog::backdrop{background:rgba(0,0,0,.6);}
+  dialog h3{margin:0 0 12px;}
+  .row{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px;}
+
+  @media (max-width:560px){
+    header h1 small{display:none;}
+    .flash{grid-template-columns:1fr 1fr; gap:12px;}
+    .choices{grid-template-columns:repeat(2,minmax(0,130px));}
+    .jin{gap:12px 5px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1 id="homeLink">百人一首 道場<small>覚える・取る・早く取る</small></h1>
+    <div class="btns">
+      <button class="ghost" id="backBtn" hidden>← もどる</button>
+      <button class="ghost" id="setBtn">⚙ 設定</button>
+    </div>
+  </header>
+
+  <!-- ===== ホーム ===== -->
+  <section id="home">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;font-size:.85rem;margin-bottom:6px;">
+        <span>覚えた歌</span><b id="memCount">0 / 100</b>
+      </div>
+      <div class="progress"><i id="memBar"></i></div>
+      <div class="sub" style="margin-top:8px;">練習する範囲：<b id="rangeLabel" style="color:var(--text)"></b>（⚙ 設定で変更）</div>
+    </div>
+    <div class="modes">
+      <button class="mode" data-go="learn">
+        <div class="mini" id="mini1"></div>
+        <div><span class="lv lv1">初心者</span><h2>覚える</h2>
+        <p>読み札と取り札をセットで覚える。音声で上の句を聞き、下の句を当てるクイズや、声に出して答える練習も。</p></div>
+      </button>
+      <button class="mode" data-go="take">
+        <div class="mini" id="mini2"></div>
+        <div><span class="lv lv2">中級者</span><h2>取る</h2>
+        <p>畳の上に並んだ取り札を、読み上げを聞いて取る。お手つき・空札（場にない札）もある本番形式。</p></div>
+      </button>
+      <button class="mode" data-go="speed">
+        <div class="mini" id="mini3"></div>
+        <div><span class="lv lv3">上級者</span><h2>早く取る</h2>
+        <p>決まり字で取る反応速度トレーニング。50枚・相手陣は逆さ・決まり字の変化にも対応。反応時間を記録。</p></div>
+      </button>
+    </div>
+    <p class="sub" style="margin-top:14px;">🔊 音声の読み上げはブラウザの日本語音声を使います。iPhoneは消音スイッチをオフにしてください。</p>
+  </section>
+
+  <!-- ===== 覚える ===== -->
+  <section id="learn" class="hidden">
+    <div class="tabs" id="learnTabs">
+      <button data-tab="card" class="on">📇 暗記カード</button>
+      <button data-tab="quiz">✋ 4択で取る</button>
+      <button data-tab="voice">🎤 声で答える</button>
+      <button data-tab="list">📜 一覧</button>
+    </div>
+
+    <div id="tab-card" class="panel">
+      <div class="btns" style="justify-content:space-between;">
+        <span class="sub" id="cardPos"></span>
+        <label class="chk"><input type="checkbox" id="onlyUnmem">まだ覚えていない歌だけ</label>
+      </div>
+      <div class="flash">
+        <div><div class="lbl">読み札（上の句を読む）</div><div id="cardYomi"></div></div>
+        <div><div class="lbl">取り札（下の句）</div><div id="cardTori"></div></div>
+      </div>
+      <div class="info">
+        <div><span class="badge k" id="cardKim"></span> <span class="badge" id="cardAuthor"></span></div>
+        <div class="kana" id="cardKami" style="margin-top:8px;"></div>
+        <div class="kana shimo" id="cardShimo"></div>
+      </div>
+      <div class="btns" style="justify-content:center;margin-top:14px;">
+        <button class="sec" id="cardPrev">◀</button>
+        <button class="sec" id="cardSay">🔊 読む</button>
+        <button id="cardFlip">めくる</button>
+        <button class="bad" id="cardNg">× まだ</button>
+        <button class="good" id="cardOk">○ 覚えた</button>
+        <button class="sec" id="cardNext">▶</button>
+      </div>
+    </div>
+
+    <div id="tab-quiz" class="panel hidden">
+      <div class="btns" style="justify-content:space-between;">
+        <span class="sub" id="quizPos"></span>
+        <label class="chk"><input type="checkbox" id="quizHard">似た札をまぜる（むずかしい）</label>
+      </div>
+      <div class="quiz-q" id="quizQ"></div>
+      <div class="choices" id="quizChoices"></div>
+      <div class="feedback" id="quizFb"></div>
+      <div class="btns" style="justify-content:center;">
+        <button class="sec" id="quizSay">🔊 もう一度</button>
+        <button id="quizNext">次へ ▶</button>
+      </div>
+    </div>
+
+    <div id="tab-voice" class="panel hidden">
+      <p class="sub" style="margin-top:0;">上の句を聞いたら、<b>下の句を声に出して</b>言ってみよう。マイクのボタンを押してから話します。</p>
+      <div id="voiceNo" class="sub hidden">⚠ このブラウザは音声認識に対応していません（Chrome・Safari・Edge推奨）。声に出して言ったあと「答えを見る」で自己採点できます。</div>
+      <div class="quiz-q" id="voiceQ"></div>
+      <div class="btns" style="justify-content:center;">
+        <button class="sec" id="voiceSay">🔊 上の句を聞く</button>
+        <button class="mic" id="voiceMic">🎤 話す</button>
+        <button class="sec" id="voiceShow">答えを見る</button>
+      </div>
+      <div class="heard" id="voiceHeard"></div>
+      <div class="feedback" id="voiceFb"></div>
+      <div id="voiceAns" class="hidden" style="display:flex;justify-content:center;gap:16px;align-items:center;flex-wrap:wrap;">
+        <div style="width:110px" id="voiceTori"></div>
+        <div class="info"><div class="kana" id="voiceShimo"></div><div class="sub" id="voiceShimoKanji"></div></div>
+      </div>
+      <div class="btns" style="justify-content:center;margin-top:12px;">
+        <button class="bad" id="voiceNg">× 言えなかった</button>
+        <button class="good" id="voiceOk">○ 言えた</button>
+        <button id="voiceNext">次へ ▶</button>
+      </div>
+    </div>
+
+    <div id="tab-list" class="panel hidden">
+      <p class="sub" style="margin-top:0;"><mark class="kim">赤字</mark>が決まり字（ここまで聞けば取れる文字）。タップすると暗記カードで開きます。</p>
+      <div class="list" id="listBox"></div>
+    </div>
+  </section>
+
+  <!-- ===== 取る・早く取る：準備 ===== -->
+  <section id="setup" class="hidden">
+    <div class="panel">
+      <h2 id="setupTitle" style="margin:0 0 4px;font-family:var(--card-font);"></h2>
+      <p class="sub" id="setupDesc" style="margin-top:0;"></p>
+      <div class="row">
+        <label class="ctl">場に並べる札の枚数
+          <select id="optCount"></select></label>
+        <label class="ctl">読む速さ
+          <select id="optPace">
+            <option value="slow">ゆっくり</option>
+            <option value="normal" selected>ふつう</option>
+            <option value="fast">はやい（試合くらい）</option>
+          </select></label>
+      </div>
+      <div class="grid2">
+        <label class="chk"><input type="checkbox" id="optKara">空札あり（場にない歌も読まれる）</label>
+        <label class="chk"><input type="checkbox" id="optText">読んでいる文字を画面に出す</label>
+        <label class="chk"><input type="checkbox" id="optHint">札に決まり字のヒントを出す</label>
+        <label class="chk"><input type="checkbox" id="optFlip">相手陣の札を逆さにする（本番風）</label>
+        <label class="chk"><input type="checkbox" id="optJoka">序歌（なにわづに…）から始める</label>
+      </div>
+      <div class="btns" style="margin-top:14px;"><button id="startBtn">▶ はじめる</button></div>
+    </div>
+  </section>
+
+  <!-- ===== 対戦 ===== -->
+  <section id="play" class="hidden">
+    <div class="reader">
+      <div class="top">
+        <span><b id="pPos"></b>　取った <b id="pTaken">0</b>　お手つき <b id="pOte">0</b></span>
+        <span class="btns"><button class="ghost" id="pSkip">次へ ▶</button><button class="ghost" id="pQuit">やめる</button></span>
+      </div>
+      <div class="line" id="pLine"></div>
+      <div class="msg" id="pMsg"></div>
+    </div>
+    <div class="tatami" id="field"></div>
+  </section>
+
+  <!-- ===== 結果 ===== -->
+  <section id="result" class="hidden">
+    <div class="panel">
+      <h2 style="margin:0;font-family:var(--card-font);">結果</h2>
+      <div class="result-grid" id="resStats"></div>
+      <div class="btns"><button id="resAgain">もう一度</button><button class="sec" id="resHome">ホームへ</button></div>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0;">一枚ずつの記録</h3>
+      <div style="overflow-x:auto;"><table class="log" id="resLog"></table></div>
+    </div>
+  </section>
+</div>
+
+<!-- ===== 設定 ===== -->
+<dialog id="settings">
+  <h3>⚙ 設定</h3>
+  <div class="row">
+    <label class="ctl">練習する範囲 <select id="sRange"></select></label>
+  </div>
+  <div class="row">
+    <label class="ctl">読み上げ
+      <select id="sVoiceMode">
+        <option value="reader">読手風の音声（おすすめ）</option>
+        <option value="device">この端末の音声</option>
+        <option value="off">音声なし</option>
+      </select></label>
+    <label class="ctl" id="sVoiceNameWrap">端末の声 <select id="sVoiceName"></select></label>
+    <button class="sec" id="sTest">🔊 試し聞き</button>
+  </div>
+  <div class="row">
+    <label class="ctl">取り札の文字
+      <select id="sReal">
+        <option value="1">本物風（濁点なし・「ゝ」を使う）</option>
+        <option value="0">わかりやすく（濁点あり）</option>
+      </select></label>
+    <label class="ctl">札の書体
+      <select id="sFont">
+        <option value="mincho">明朝（くっきり）</option>
+        <option value="brush">毛筆風</option>
+      </select></label>
+  </div>
+  <div class="btns" style="justify-content:space-between;margin-top:8px;">
+    <button class="ghost" id="sReset">覚えた記録をリセット</button>
+    <button id="sClose">閉じる</button>
+  </div>
+</dialog>
+
+<script src="data.js"></script>
+<script src="portrait.js"></script>
+<script src="audio/timing.js"></script>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- 保存データ ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('hyakunin_' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('hyakunin_' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const S = Object.assign({ range: 'all', voiceMode: 'reader', voiceName: '', real: '1', font: 'mincho' }, store.get('settings', {}));
+if (S.voice === false && !store.get('settings', {}).voiceMode) S.voiceMode = 'off';
+delete S.voice;
+let memorized = new Set(store.get('mem', []));
+const saveS = () => store.set('settings', S);
+const saveMem = () => store.set('mem', [...memorized]);
+
+const RANGES = [['all', '全100首']];
+for (let i = 0; i < 5; i++) RANGES.push([`n${i}`, `${i * 20 + 1}〜${i * 20 + 20}番`]);
+RANGES.push(['k1', '1字決まり（7首）'], ['k2', '2字決まり'], ['k3', '3字決まり'], ['k4', '4字以上の決まり字'], ['unmem', 'まだ覚えていない歌']);
+function rangePoems(r = S.range) {
+  let list;
+  if (r[0] === 'n') { const i = +r[1]; list = POEMS.slice(i * 20, i * 20 + 20); }
+  else if (r === 'k1' || r === 'k2' || r === 'k3') list = POEMS.filter(p => p.kimariji.length === +r[1]);
+  else if (r === 'k4') list = POEMS.filter(p => p.kimariji.length >= 4);
+  else if (r === 'unmem') list = POEMS.filter(p => !memorized.has(p.no));
+  else list = POEMS;
+  return list.length ? list : POEMS;
+}
+const rangeName = () => RANGES.find(r => r[0] === S.range)[1];
+
+/* ---------- 札の描画 ---------- */
+// 取り札の文字：本物風は濁点・半濁点を取り、同じ字が続くと「ゝ」にする
+function toriChars(p) {
+  let s = p.shimoKana.replace(/ /g, '');
+  if (S.real === '1') {
+    s = s.normalize('NFD').replace(/[゙゚]/g, '').normalize('NFC');
+    s = [...s].map((c, i, a) => (i > 0 && c === a[i - 1]) ? 'ゝ' : c).join('');
+  }
+  const a = [...s], n = a.length, c1 = Math.ceil(n / 3), c2 = Math.ceil((n - c1) / 2);
+  return [a.slice(0, c1).join(''), a.slice(c1, c1 + c2).join(''), a.slice(c1 + c2).join('')];
+}
+function toriEl(p, opt = {}) {
+  const el = document.createElement('div');
+  el.className = 'tori' + (opt.back ? ' back' : '') + (opt.flip ? ' flip' : '');
+  el.dataset.no = p.no;
+  el.innerHTML = `<div class="face">${toriChars(p).map(c => `<span class="col">${c}</span>`).join('')}</div>`;
+  return el;
+}
+// 読み札：上に歌と作者、下に歌仙絵。hideShimo なら下の句を伏せる
+function yomiEl(p, { hideShimo = false } = {}) {
+  const el = document.createElement('div');
+  el.className = 'yomi';
+  const ku = [...p.kami.split(' '), ...p.shimo.split(' ')];
+  el.innerHTML = `<div class="face"><div class="no">${p.no}</div>
+    <div class="txt"><div class="author">${esc(p.author)}</div>
+    <div class="poem">${ku.map((k, i) => `<span class="${hideShimo && i >= 3 ? 'hid' : ''}">${esc(k)}</span>`).join('')}</div></div>
+    ${window.portraitSVG ? portraitSVG(p.no) : ''}</div>`;
+  return el;
+}
+function showYomiShimo(el, on) { el.querySelectorAll('.poem span:nth-child(n+4)').forEach(s => s.classList.toggle('hid', !on)); }
+// 上の句のかなに決まり字の印をつける
+function kamiWithKim(p, kim = p.kimariji) {
+  let left = kim.length, out = '';
+  for (const ch of p.kamiKana) {
+    if (ch !== ' ' && left > 0) { out += `<mark class="kim">${ch}</mark>`; left--; }
+    else out += ch === ' ' ? '　' : ch;
+  }
+  return out.replace(/<\/mark><mark class="kim">/g, '');
+}
+
+/* ---------- 音声読み上げ ---------- */
+const synth = window.speechSynthesis;
+let jaVoices = [];
+function loadVoices() {
+  if (!synth) return;
+  jaVoices = synth.getVoices().filter(v => /^ja/i.test(v.lang));
+  const sel = $('#sVoiceName');
+  sel.innerHTML = '<option value="">おまかせ</option>' + jaVoices.map(v => `<option value="${esc(v.name)}">${esc(v.name)}</option>`).join('');
+  sel.value = jaVoices.some(v => v.name === S.voiceName) ? S.voiceName : '';
+}
+if (synth) { loadVoices(); synth.onvoiceschanged = loadVoices; }
+function pickVoice() {
+  if (S.voiceName) { const v = jaVoices.find(v => v.name === S.voiceName); if (v) return v; }
+  const pref = [/Kyoko/i, /O-?ren/i, /Google/i, /Nanami/i, /Haruka/i];
+  for (const re of pref) { const v = jaVoices.find(v => re.test(v.name)); if (v) return v; }
+  return jaVoices[0];
+}
+// 端末の音声：話し終わるか、止められるか、時間切れで終わる
+function speak(text, rate = 0.85) {
+  return new Promise(resolve => {
+    if (!synth || S.voiceMode === 'off') return resolve();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = rate; u.pitch = 1;
+    const v = pickVoice(); if (v) u.voice = v;
+    let done = false;
+    const fin = () => { if (!done) { done = true; clearTimeout(t); resolve(); } };
+    const t = setTimeout(fin, 1500 + text.length * 450 / rate);
+    u.onend = fin; u.onerror = fin;
+    synth.speak(u);
+  });
+}
+
+/* 読手風の音声：audio/ フォルダの録音（tools/make_audio.py で作成）を再生する。
+   AUDIO_TIMING に一音ずつの時刻が入っているので、文字の表示と決まり字の瞬間が声とぴったり合う */
+const player = new Audio();
+player.preload = 'auto';
+let readerBroken = typeof AUDIO_TIMING === 'undefined';
+const useReader = () => S.voiceMode === 'reader' && !readerBroken;
+const pad3 = n => String(n).padStart(3, '0');
+const clipUrl = (part, no) => `audio/${part}_${pad3(no)}.mp3`;
+// iPhone などは、最初のタップの中で一度再生しておかないと、あとから音が出せない
+let unlocked = false;
+document.addEventListener('pointerdown', () => {
+  if (unlocked || readerBroken) return;
+  unlocked = true;
+  player.muted = true; player.src = 'audio/joka.mp3';
+  player.play().then(() => { player.pause(); player.muted = false; }).catch(() => { player.muted = false; });
+}, { capture: true });
+function preload(no) { if (useReader()) { const a = new Audio(); a.preload = 'auto'; a.src = clipUrl('kami', no); } }
+
+// 再生して、終わったら 'ok'、止められたら 'stop'、読み込めなければ 'fail'
+function playClip(src, rate, onTime) {
+  const my = readToken;
+  return new Promise(resolve => {
+    let done = false, raf = 0;
+    const fin = r => { if (done) return; done = true; cancelAnimationFrame(raf); player.onended = player.onerror = null; resolve(r); };
+    player.onended = () => fin('ok');
+    player.onerror = () => fin('fail');
+    player.muted = false;
+    player.src = src;
+    player.playbackRate = rate; player.preservesPitch = true; player.webkitPreservesPitch = true;
+    player.play().then(() => {
+      const tick = () => {
+        if (done) return;
+        if (my !== readToken) { player.pause(); return fin('stop'); }
+        onTime && onTime(player.currentTime);
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    }).catch(err => {
+      // 別の音に切りかえた（AbortError）・自動再生が止められた（NotAllowedError）ときは失敗あつかいにしない
+      const benign = my !== readToken || (err && (err.name === 'AbortError' || err.name === 'NotAllowedError'));
+      fin(benign ? 'stop' : 'fail');
+    });
+  });
+}
+function hush() { if (synth) synth.cancel(); player.pause(); }
+
+/* 歌を読む：声を出しながら、文字を一文字ずつ表示する */
+const PACE = {
+  slow:   { audio: 0.85, rate: 0.65, ms: 270 },
+  normal: { audio: 1.0,  rate: 0.8,  ms: 210 },
+  fast:   { audio: 1.18, rate: 1.0,  ms: 160 },
+};
+let readToken = 0;
+function stopReading() { readToken++; hush(); }
+async function readPoem(p, opts = {}) {
+  if (useReader()) {
+    const r = await readPoemAudio(p, opts);
+    if (r !== 'fail') return r === 'ok';
+    readerBroken = true;          // 音声ファイルが見つからないときは端末の声に切りかえる
+  }
+  return readPoemTTS(p, opts);
+}
+async function readPoemAudio(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } = {}) {
+  const my = ++readToken;
+  const rate = PACE[pace].audio;
+  const tm = AUDIO_TIMING[p.no];
+  const marks = [];
+  p.kamiKana.split(' ').forEach((ku, k) => [...ku].forEach((ch, i) => marks.push({ ch, t: tm.kami.t[k][i] })));
+  let shown = 0;
+  const r = await playClip(clipUrl('kami', p.no), rate, cur => {
+    while (shown < marks.length && cur >= marks[shown].t) { shown++; onChar && onChar(shown, marks[shown - 1].ch); }
+  });
+  if (r !== 'ok') return r;
+  while (shown < marks.length) { shown++; onChar && onChar(shown, marks[shown - 1].ch); }
+  onKamiEnd && onKamiEnd();
+  if (!shimo) return 'ok';
+  await sleep(500 / rate);
+  if (my !== readToken) return 'stop';
+  return playClip(clipUrl('shimo', p.no), rate);
+}
+async function readPoemTTS(p, { pace = 'normal', shimo = true, onChar, onKamiEnd } = {}) {
+  const my = ++readToken;
+  const alive = () => my === readToken;
+  const { rate, ms } = PACE[pace];
+  const kanaKu = p.kamiKana.split(' '), yomiKu = p.kamiYomi.split(' ');
+  let shown = 0;
+  for (let i = 0; i < 3; i++) {
+    const say = speak(yomiKu[i], rate);
+    const show = (async () => {
+      for (const ch of kanaKu[i]) { if (!alive()) return; onChar && onChar(++shown, ch); await sleep(ms); }
+    })();
+    await Promise.all([say, show]);
+    if (!alive()) return false;
+    await sleep(ms * 0.8);
+  }
+  onKamiEnd && onKamiEnd();
+  if (shimo) {
+    await sleep(350);
+    if (!alive()) return false;
+    for (const k of p.shimoYomi.split(' ')) { await speak(k, rate); if (!alive()) return false; await sleep(ms * 0.6); }
+  }
+  return alive();
+}
+// 下の句だけを読む（呼ぶ前に stopReading() しておく）
+async function sayShimo(p, pace = 'normal') {
+  const my = readToken;
+  if (useReader()) { const r = await playClip(clipUrl('shimo', p.no), PACE[pace].audio); if (r !== 'fail') return; readerBroken = true; }
+  for (const k of p.shimoYomi.split(' ')) { if (my !== readToken) return; await speak(k, PACE[pace].rate); }
+}
+// 序歌
+async function sayJoka(pace, isSkipped) {
+  if (useReader()) { const r = await playClip('audio/joka.mp3', PACE[pace].audio); if (r !== 'fail') return; readerBroken = true; }
+  for (const k of ['なにわづに', 'さくやこのはな', 'ふゆごもり', 'いまをはるべと', 'さくやこのはな']) {
+    if (isSkipped()) return;
+    await speak(k, PACE[pace].rate);
+    if (S.voiceMode === 'off') await sleep(500);
+  }
+}
+
+/* ---------- 画面切り替え ---------- */
+const SECTIONS = ['home', 'learn', 'setup', 'play', 'result'];
+function show(id) {
+  SECTIONS.forEach(s => $('#' + s).classList.toggle('hidden', s !== id));
+  $('#backBtn').hidden = id === 'home';
+  window.scrollTo(0, 0);
+}
+function goHome() {
+  stopReading(); stopRec(); endGame(false);
+  refreshHome(); show('home');
+}
+function refreshHome() {
+  $('#memCount').textContent = `${memorized.size} / 100`;
+  $('#memBar').style.width = memorized.size + '%';
+  $('#rangeLabel').textContent = `${rangeName()}（${rangePoems().length}首）`;
+  [['#mini1', 1, false], ['#mini2', 87, false], ['#mini3', 77, true]].forEach(([sel, no, back]) => {
+    const box = $(sel); box.innerHTML = ''; box.append(toriEl(POEMS[no - 1], { back }));
+  });
+}
+$('#homeLink').onclick = goHome;
+$('#backBtn').onclick = goHome;
+$$('[data-go]').forEach(b => b.onclick = () => {
+  const g = b.dataset.go;
+  if (g === 'learn') { show('learn'); openTab(curTab); }
+  else openSetup(g);
+});
+
+/* ---------- 設定 ---------- */
+$('#sRange').innerHTML = RANGES.map(([v, t]) => `<option value="${v}">${t}</option>`).join('');
+function applyFont() { document.body.classList.toggle('brush', S.font === 'brush'); }
+$('#setBtn').onclick = () => {
+  $('#sRange').value = S.range; $('#sVoiceMode').value = S.voiceMode; $('#sReal').value = S.real; $('#sFont').value = S.font;
+  $('#sVoiceNameWrap').hidden = S.voiceMode !== 'device';
+  loadVoices(); $('#settings').showModal();
+};
+$('#sVoiceMode').onchange = () => { $('#sVoiceNameWrap').hidden = $('#sVoiceMode').value !== 'device'; };
+$('#sTest').onclick = () => {
+  S.voiceMode = $('#sVoiceMode').value; S.voiceName = $('#sVoiceName').value;
+  stopReading(); readPoem(POEMS[0], { pace: 'normal', shimo: true });
+};
+// 2回押すとリセット（確認ダイアログを使わない）
+$('#sReset').onclick = () => {
+  const b = $('#sReset');
+  if (b.dataset.armed) { memorized.clear(); saveMem(); refreshHome(); b.textContent = 'リセットしました'; delete b.dataset.armed; return; }
+  b.dataset.armed = '1'; b.textContent = 'もう一度押すと消えます';
+  setTimeout(() => { delete b.dataset.armed; b.textContent = '覚えた記録をリセット'; }, 3000);
+};
+$('#sClose').onclick = () => $('#settings').close();
+$('#settings').addEventListener('close', () => {
+  S.range = $('#sRange').value; S.voiceMode = $('#sVoiceMode').value; S.voiceName = $('#sVoiceName').value;
+  S.real = $('#sReal').value; S.font = $('#sFont').value;
+  saveS(); applyFont(); refreshHome();
+  if (!$('#learn').classList.contains('hidden')) openTab(curTab, true);
+});
+
+/* ======================================================
+   初心者：覚える
+   ====================================================== */
+let curTab = 'card';
+function openTab(t, reset = false) {
+  curTab = t; stopReading(); stopRec();
+  $$('#learnTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['card', 'quiz', 'voice', 'list'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== t));
+  if (t === 'card') cardInit(reset);
+  if (t === 'quiz') quizInit();
+  if (t === 'voice') voiceInit();
+  if (t === 'list') listInit();
+}
+$$('#learnTabs button').forEach(b => b.onclick = () => openTab(b.dataset.tab, true));
+
+/* --- 暗記カード --- */
+let deck = [], deckIdx = 0, flipped = false;
+function cardInit(reset) {
+  const keepNo = !reset && deck[deckIdx] && deck[deckIdx].no;
+  deck = rangePoems().filter(p => !$('#onlyUnmem').checked || !memorized.has(p.no));
+  if (!deck.length) deck = rangePoems();
+  deckIdx = Math.max(0, deck.findIndex(p => p.no === keepNo));
+  cardShow();
+}
+$('#onlyUnmem').onchange = () => cardInit(true);
+function cardShow(speakIt = true) {
+  const p = deck[deckIdx]; flipped = false;
+  $('#cardPos').textContent = `${deckIdx + 1} / ${deck.length}　（${p.no}番）${memorized.has(p.no) ? '✔ 覚えた' : ''}`;
+  $('#cardYomi').innerHTML = ''; $('#cardYomi').append(yomiEl(p, { hideShimo: true }));
+  $('#cardTori').innerHTML = ''; $('#cardTori').append(toriEl(p, { back: true }));
+  $('#cardTori').firstChild.onclick = cardFlip;
+  $('#cardKim').textContent = `決まり字「${p.kimariji}」${p.kimariji.length}字`;
+  $('#cardAuthor').textContent = p.author;
+  $('#cardKami').innerHTML = kamiWithKim(p);
+  $('#cardShimo').textContent = '下の句は？　→ 札をタップしてめくる';
+  $('#cardFlip').textContent = 'めくる';
+  if (speakIt) { stopReading(); readPoem(p, { pace: 'slow', shimo: false }); }
+}
+function cardFlip() {
+  const p = deck[deckIdx];
+  flipped = !flipped;
+  $('#cardTori').firstChild.classList.toggle('back', !flipped);
+  showYomiShimo($('#cardYomi').firstChild, flipped);
+  $('#cardShimo').textContent = flipped ? p.shimoKana.replace(' ', '　') : '下の句は？　→ 札をタップしてめくる';
+  $('#cardFlip').textContent = flipped ? 'かくす' : 'めくる';
+  if (flipped) { stopReading(); sayShimo(p, 'slow'); }
+}
+function cardMove(d) { deckIdx = (deckIdx + d + deck.length) % deck.length; cardShow(); }
+$('#cardFlip').onclick = cardFlip;
+$('#cardPrev').onclick = () => cardMove(-1);
+$('#cardNext').onclick = () => cardMove(1);
+$('#cardSay').onclick = () => { stopReading(); readPoem(deck[deckIdx], { pace: 'slow', shimo: flipped }); };
+$('#cardOk').onclick = () => { memorized.add(deck[deckIdx].no); saveMem(); cardMove(1); };
+$('#cardNg').onclick = () => { memorized.delete(deck[deckIdx].no); saveMem(); cardMove(1); };
+
+/* --- 4択クイズ --- */
+let quiz = null;
+function quizInit() {
+  const qs = shuffle(rangePoems()).slice(0, 10);
+  quiz = { qs, i: 0, score: 0, answered: false, log: [] };
+  quizShow();
+}
+function quizShow() {
+  const q = quiz.qs[quiz.i]; quiz.answered = false;
+  $('#quizPos').textContent = `第${quiz.i + 1}問 / ${quiz.qs.length}　正解 ${quiz.score}`;
+  $('#quizQ').innerHTML = kamiWithKim(q);
+  $('#quizFb').textContent = ''; $('#quizFb').className = 'feedback';
+  $('#quizNext').textContent = '次へ ▶';
+  let others;
+  if ($('#quizHard').checked) {
+    // 頭の音が同じ歌（＝まぎらわしい札）を優先してまぜる
+    const head = s => s.replace(/を/g, 'お');
+    const score = p => { const a = head(p.kamiKana), b = head(q.kamiKana); let k = 0; while (a[k] === b[k]) k++; return k + Math.random(); };
+    others = POEMS.filter(p => p.no !== q.no).sort((a, b) => score(b) - score(a)).slice(0, 3);
+  } else others = shuffle(POEMS.filter(p => p.no !== q.no)).slice(0, 3);
+  const box = $('#quizChoices'); box.innerHTML = '';
+  shuffle([q, ...others]).forEach(p => {
+    const el = toriEl(p);
+    el.onclick = () => quizAnswer(p, el);
+    box.append(el);
+  });
+  stopReading(); readPoem(q, { pace: 'normal', shimo: false });
+}
+function quizAnswer(p, el) {
+  if (quiz.answered) return;
+  quiz.answered = true;
+  const q = quiz.qs[quiz.i];
+  const right = $(`#quizChoices .tori[data-no="${q.no}"]`);
+  if (p.no === q.no) {
+    quiz.score++; el.classList.add('ok');
+    $('#quizFb').textContent = '○ 正解！'; $('#quizFb').className = 'feedback ok';
+  } else {
+    el.classList.add('ng'); right.classList.add('reveal');
+    $('#quizFb').textContent = '× ざんねん（光っている札が正解）'; $('#quizFb').className = 'feedback ng';
+    memorized.delete(q.no); saveMem();
+  }
+  $('#quizPos').textContent = `第${quiz.i + 1}問 / ${quiz.qs.length}　正解 ${quiz.score}`;
+  $('#quizQ').innerHTML = kamiWithKim(q) + `<div class="sub" style="font-size:.95rem">${q.shimoKana.replace(' ', '　')}</div>`;
+  if (quiz.i === quiz.qs.length - 1) $('#quizNext').textContent = '結果を見る';
+  stopReading();
+  sayShimo(q, 'normal');
+}
+$('#quizNext').onclick = () => {
+  if (quiz.finished) { quizInit(); return; }
+  if (!quiz.answered) { quizAnswer({ no: -1 }, document.createElement('div')); return; }
+  if (quiz.i < quiz.qs.length - 1) { quiz.i++; quizShow(); return; }
+  stopReading();
+  $('#quizQ').innerHTML = `${quiz.qs.length}問中 <b style="color:var(--accent)">${quiz.score}問</b> 正解！`;
+  $('#quizChoices').innerHTML = '';
+  $('#quizFb').textContent = quiz.score === quiz.qs.length ? '満点！すばらしい 🎉' : 'まちがえた歌は「暗記カード」で復習しよう';
+  $('#quizFb').className = 'feedback ok';
+  $('#quizNext').textContent = 'もう一度';
+  quiz.finished = true;
+};
+$('#quizSay').onclick = () => { if (quiz && !quiz.finished) { stopReading(); readPoem(quiz.qs[quiz.i], { pace: 'slow', shimo: quiz.answered }); } };
+
+/* --- 声で答える（音声認識） --- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, vq = null, vList = [], vIdx = 0;
+function voiceInit() {
+  $('#voiceNo').classList.toggle('hidden', !!SR);
+  $('#voiceMic').classList.toggle('hidden', !SR);
+  vList = shuffle(rangePoems()); vIdx = 0; voiceShowQ();
+}
+function voiceShowQ() {
+  vq = vList[vIdx % vList.length];
+  $('#voiceQ').innerHTML = kamiWithKim(vq);
+  $('#voiceHeard').textContent = ''; $('#voiceFb').textContent = ''; $('#voiceFb').className = 'feedback';
+  $('#voiceAns').classList.add('hidden');
+  stopReading(); readPoem(vq, { pace: 'slow', shimo: false });
+}
+function voiceReveal() {
+  $('#voiceAns').classList.remove('hidden');
+  $('#voiceTori').innerHTML = ''; $('#voiceTori').append(toriEl(vq));
+  $('#voiceShimo').textContent = vq.shimoKana.replace(' ', '　');
+  $('#voiceShimoKanji').textContent = vq.shimo.replace(' ', '　');
+}
+// 2文字ずつの重なりで似ている度合いをはかる（0〜1）
+function similarity(a, b) {
+  const grams = s => { const g = new Map(); for (let i = 0; i < s.length - 1; i++) { const k = s.slice(i, i + 2); g.set(k, (g.get(k) || 0) + 1); } return g; };
+  const A = grams(a), B = grams(b); let hit = 0, tot = 0;
+  A.forEach((n, k) => { hit += Math.min(n, B.get(k) || 0); tot += n; }); B.forEach(n => tot += n);
+  return tot ? 2 * hit / tot : 0;
+}
+function judgeVoice(heard) {
+  const clean = s => s.replace(/[\s、。・ー]/g, '').replace(/[ァ-ン]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+  const h = clean(heard);
+  return Math.max(similarity(h, clean(vq.shimo)), similarity(h, clean(vq.shimoYomi)), similarity(h, clean(vq.shimoKana)));
+}
+function stopRec() { if (rec) { try { rec.abort(); } catch (e) {} rec = null; } $('#voiceMic').classList.remove('rec'); $('#voiceMic').textContent = '🎤 話す'; }
+$('#voiceMic').onclick = () => {
+  if (rec) { rec.stop(); return; }
+  stopReading();
+  rec = new SR(); rec.lang = 'ja-JP'; rec.interimResults = true; rec.continuous = false;
+  let finalText = '';
+  rec.onresult = e => {
+    finalText = [...e.results].map(r => r[0].transcript).join('');
+    $('#voiceHeard').textContent = '「' + finalText + '」';
+  };
+  rec.onerror = e => { $('#voiceFb').textContent = e.error === 'not-allowed' ? 'マイクの使用を許可してください' : '聞き取れませんでした。もう一度どうぞ'; $('#voiceFb').className = 'feedback ng'; };
+  rec.onend = () => {
+    const had = !!rec; stopRec();
+    if (!had || !finalText) return;
+    const sc = judgeVoice(finalText);
+    voiceReveal();
+    if (sc >= 0.45) { $('#voiceFb').textContent = '○ 正解！'; $('#voiceFb').className = 'feedback ok'; memorized.add(vq.no); saveMem(); }
+    else { $('#voiceFb').textContent = '× ちがうみたい…（合っていたら「○ 言えた」を押してね）'; $('#voiceFb').className = 'feedback ng'; }
+  };
+  rec.start();
+  $('#voiceMic').classList.add('rec'); $('#voiceMic').textContent = '⏹ 話し終わった';
+};
+$('#voiceSay').onclick = () => { stopReading(); readPoem(vq, { pace: 'slow', shimo: false }); };
+$('#voiceShow').onclick = () => { voiceReveal(); stopReading(); sayShimo(vq, 'slow'); };
+$('#voiceOk').onclick = () => { memorized.add(vq.no); saveMem(); vIdx++; voiceShowQ(); };
+$('#voiceNg').onclick = () => { memorized.delete(vq.no); saveMem(); voiceReveal(); $('#voiceFb').textContent = '答えを確認して、もう一度言ってみよう'; $('#voiceFb').className = 'feedback'; };
+$('#voiceNext').onclick = () => { stopRec(); vIdx++; voiceShowQ(); };
+
+/* --- 一覧 --- */
+function listInit() {
+  $('#listBox').innerHTML = rangePoems().map(p => `
+    <div class="item ${memorized.has(p.no) ? 'mem' : ''}" data-no="${p.no}">
+      <div class="n">${p.no}</div>
+      <div><div class="t">${kamiWithKim(p)}</div><div class="t" style="color:var(--sub)">${p.shimoKana.replace(' ', '　')}</div>
+      <div class="a">${esc(p.author)}　決まり字 ${p.kimariji.length}字</div></div>
+    </div>`).join('');
+  $$('#listBox .item').forEach(it => it.onclick = () => {
+    $('#onlyUnmem').checked = false;
+    deck = rangePoems(); deckIdx = deck.findIndex(p => p.no === +it.dataset.no);
+    curTab = 'card';
+    $$('#learnTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === 'card'));
+    ['card', 'quiz', 'voice', 'list'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== 'card'));
+    cardShow(); window.scrollTo(0, 0);
+  });
+}
+
+/* ======================================================
+   中級：取る ／ 上級：早く取る
+   ====================================================== */
+const MODES = {
+  take: {
+    title: '中級者：取る', counts: [8, 12, 20, 25], count: 12, pace: 'normal',
+    desc: '読み上げを聞いて、場にある取り札をタップ。違う札にさわると「お手つき」。下の句まで読み終わっても取れないと次へ進みます。',
+    kara: false, text: true, hint: false, flip: false, joka: false, wait: 4000,
+  },
+  speed: {
+    title: '上級者：早く取る', counts: [25, 50], count: 50, pace: 'fast',
+    desc: '決まり字が聞こえた瞬間に取る練習。反応時間と「決まり字が読まれてから何秒で取れたか」を記録します。読まれた札が増えると決まり字は短くなります（決まり字の変化）。',
+    kara: true, text: false, hint: false, flip: true, joka: true, wait: 2500,
+  },
+};
+let curMode = 'take';
+function openSetup(m) {
+  curMode = m; const M = MODES[m];
+  const saved = store.get('opt_' + m, {});
+  $('#setupTitle').textContent = M.title; $('#setupDesc').textContent = M.desc;
+  const n = rangePoems().length;
+  $('#optCount').innerHTML = M.counts.map(c => `<option value="${c}">${c}枚</option>`).join('');
+  $('#optCount').value = saved.count || M.count;
+  $('#optPace').value = saved.pace || M.pace;
+  $('#optKara').checked = saved.kara ?? M.kara;
+  $('#optText').checked = saved.text ?? M.text;
+  $('#optHint').checked = saved.hint ?? M.hint;
+  $('#optFlip').checked = saved.flip ?? M.flip;
+  $('#optJoka').checked = saved.joka ?? M.joka;
+  if (n < +$('#optCount').value) $('#setupDesc').textContent += `（いまの範囲は${n}首なので、${n}枚で行います）`;
+  show('setup');
+}
+$('#startBtn').onclick = () => {
+  const cfg = {
+    count: +$('#optCount').value, pace: $('#optPace').value, kara: $('#optKara').checked,
+    text: $('#optText').checked, hint: $('#optHint').checked, flip: $('#optFlip').checked, joka: $('#optJoka').checked,
+  };
+  store.set('opt_' + curMode, cfg);
+  startGame(Object.assign({}, MODES[curMode], cfg));
+};
+
+let G = null;
+function startGame(cfg) {
+  const pool = shuffle(rangePoems());
+  const field = pool.slice(0, Math.min(cfg.count, pool.length));
+  // 空札ありなら範囲全体を読む（場にない札も読まれる）。なしなら場の札だけを読む
+  const queue = cfg.kara ? shuffle(pool) : shuffle(field);
+  G = { cfg, field, queue, i: -1, onField: new Set(field.map(p => p.no)), taken: 0, ote: 0, missed: 0, log: [], phase: 'idle', id: Math.random() };
+  renderField();
+  show('play');
+  $('#pLine').innerHTML = ''; setMsg('', '');
+  updateTop();
+  runGame(G);
+}
+function endGame(showResult) {
+  if (!G) return;
+  stopReading(); G.phase = 'done';
+  const g = G; G = showResult ? G : null;
+  if (showResult) renderResult(g);
+}
+function renderField() {
+  const box = $('#field'); box.innerHTML = '';
+  const n = G.field.length;
+  const cw = n <= 8 ? 100 : n <= 12 ? 88 : n <= 25 ? 72 : 60;
+  box.style.setProperty('--cw', `min(${cw}px, 22vw)`);
+  const halves = (G.cfg.flip && n >= 8) ? [G.field.slice(0, Math.floor(n / 2)), G.field.slice(Math.floor(n / 2))] : [G.field];
+  halves.forEach((cards, h) => {
+    if (halves.length > 1) { const l = document.createElement('div'); l.className = 'jinlbl'; l.textContent = h === 0 ? '▼ 相手陣（逆さ）' : '▲ 自陣'; box.append(l); }
+    const jin = document.createElement('div'); jin.className = 'jin';
+    cards.forEach(p => {
+      const el = toriEl(p, { flip: halves.length > 1 && h === 0 });
+      el.onpointerdown = e => { e.preventDefault(); onTap(p, el); };
+      jin.append(el);
+    });
+    box.append(jin);
+  });
+  updateHints();
+}
+// 決まり字の変化：まだ読まれていない歌の中で決まり字を計算しなおす
+function unreadPool() { return G.queue.slice(Math.max(G.i, 0)); }
+function updateHints() {
+  const pool = unreadPool();
+  $$('#field .tori').forEach(el => {
+    el.querySelector('.hint')?.remove();
+    if (!G.cfg.hint || el.classList.contains('gone')) return;
+    const p = POEMS[el.dataset.no - 1];
+    const h = document.createElement('div'); h.className = 'hint'; h.textContent = kimarijiOf(p, pool);
+    el.append(h);
+  });
+}
+function setMsg(t, cls) { $('#pMsg').textContent = t; $('#pMsg').className = 'msg ' + (cls || ''); }
+function updateTop() {
+  $('#pPos').textContent = G.i < 0 ? '準備' : `${G.i + 1} / ${G.queue.length} 首目`;
+  $('#pTaken').textContent = G.taken; $('#pOte').textContent = G.ote;
+}
+let skipWait = null;
+const waitOrSkip = ms => new Promise(r => {
+  if (G && G.cur && G.cur.skip) { G.cur.skip = false; return r(); }
+  const t = setTimeout(r, ms); skipWait = () => { clearTimeout(t); r(); };
+});
+$('#pSkip').onclick = () => {
+  if (G && G.phase === 'joka') { G.jokaSkip = true; hush(); }
+  else if (G && G.phase === 'reading') { G.cur.skip = true; stopReading(); }
+  else if (skipWait) skipWait();
+};
+$('#pQuit').onclick = () => { if (G && G.log.length) endGame(true); else goHome(); };
+
+async function runGame(g) {
+  const alive = () => G === g && g.phase !== 'done';
+  const pace = g.cfg.pace;
+  await sleep(500);
+  if (g.cfg.joka && alive()) {
+    g.phase = 'joka';
+    $('#pLine').textContent = g.cfg.text ? 'なにはづに さくやこのはな ふゆごもり いまをはるべと さくやこのはな' : '（序歌）';
+    setMsg('序歌：まだ取りません。耳を慣らそう', 'info');
+    await sayJoka(pace, () => !alive() || g.jokaSkip);
+    if (!alive()) return;
+    await sleep(900);
+  }
+  while (alive() && g.onField.size > 0 && g.i < g.queue.length - 1) {
+    g.i++;
+    const p = g.queue[g.i];
+    const kara = !g.onField.has(p.no);
+    const kim = kimarijiOf(p, unreadPool());
+    g.cur = { p, kara, kim, start: 0, kimAt: 0, taken: false };
+    updateTop(); updateHints(); setMsg('', '');
+    $('#pLine').innerHTML = '';
+    if (g.queue[g.i + 1]) preload(g.queue[g.i + 1].no);
+    await sleep(600); if (!alive()) return;
+    g.phase = 'reading';
+    g.cur.start = performance.now();
+    const line = $('#pLine');
+    await readPoem(p, {
+      pace, shimo: !kara,
+      onChar: (n, ch) => {
+        // 決まり字の最後の音が聞こえた瞬間（子音から母音に移るくらい）を基準にする
+        if (n === kim.length) g.cur.kimAt = performance.now() + 120 / PACE[pace].audio;
+        if (g.cfg.text) line.insertAdjacentText('beforeend', ch);
+        else if (n === 1) line.innerHTML = '<span class="sub">🔊 読み上げ中…</span>';
+      },
+      onKamiEnd: () => { if (g.cfg.text) line.insertAdjacentHTML('beforeend', `<span class="shimo">${p.shimoKana}</span>`); },
+    });
+    if (!alive()) return;
+    if (g.cur.taken) {
+      // 取った後：下の句を読んで確認（スキップ可）
+      await g.cur.afterTake; if (!alive()) return;
+      continue;
+    }
+    if (kara) {
+      g.phase = 'wait';
+      await waitOrSkip(1200); if (!alive() || g.cur.taken) { if (g.cur.taken) await g.cur.afterTake; continue; }
+      g.phase = 'between';
+      g.log.push({ p, kind: 'kara', kim });
+      setMsg(`空札でした（場にない歌）　${p.no}番 決まり字「${kim}」`, 'info');
+      await waitOrSkip(1400);
+      continue;
+    }
+    g.phase = 'wait';
+    await waitOrSkip(g.cfg.wait);
+    if (!alive()) return;
+    if (g.cur.taken) { await g.cur.afterTake; continue; }
+    // 取れなかった
+    g.phase = 'between';
+    g.missed++;
+    g.log.push({ p, kind: 'miss', kim });
+    const el = $(`#field .tori[data-no="${p.no}"]`);
+    el && el.classList.add('reveal');
+    setMsg(`取れなかった…　光っている札です（決まり字「${kim}」）`, 'ng');
+    await waitOrSkip(2200);
+    if (el) { el.classList.remove('reveal'); el.classList.add('gone'); }
+    g.onField.delete(p.no);
+    updateTop();
+  }
+  if (alive()) { await sleep(500); endGame(true); }
+}
+function onTap(p, el) {
+  const g = G;
+  if (!g || !g.cur || !['reading', 'wait'].includes(g.phase) || g.cur.taken || el.classList.contains('gone')) return;
+  const c = g.cur;
+  if (p.no === c.p.no) {
+    const now = performance.now();
+    if (g.phase === 'wait' && skipWait) skipWait();
+    c.taken = true; c.skip = false; g.phase = 'between'; g.taken++;
+    const t = (now - c.start) / 1000;
+    const fromKim = c.kimAt ? (now - c.kimAt) / 1000 : null;
+    g.log.push({ p, kind: 'take', kim: c.kim, t, fromKim });
+    el.classList.add('ok');
+    stopReading();
+    let m = `取った！ ${t.toFixed(2)}秒`;
+    if (fromKim !== null) m += `（決まり字「${c.kim}」から ${fromKim >= 0 ? '+' : ''}${fromKim.toFixed(2)}秒）`;
+    else m += `（決まり字「${c.kim}」より前に取った！）`;
+    setMsg(m, 'ok');
+    $('#pLine').innerHTML = `${kamiWithKim(p, c.kim)}<span class="shimo">${p.shimoKana}</span>`;
+    updateTop();
+    c.afterTake = (async () => {
+      await Promise.race([Promise.all([sayShimo(p, g.cfg.pace), sleep(900)]), waitOrSkip(g.cfg.wait + 4000)]);
+      stopReading();
+      el.classList.add('gone'); g.onField.delete(p.no);
+      await sleep(300);
+    })();
+  } else {
+    g.ote++;
+    el.classList.remove('ng'); void el.offsetWidth; el.classList.add('ng');
+    g.log.push({ p: c.p, kind: 'ote', wrong: p, kim: c.kim });
+    setMsg(c.kara ? 'お手つき！（いまのは空札＝場にない歌）' : 'お手つき！', 'ng');
+    updateTop();
+  }
+}
+function renderResult(g) {
+  const takes = g.log.filter(l => l.kind === 'take');
+  const avg = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+  const tAvg = avg(takes.map(l => l.t));
+  const kd = takes.map(l => l.fromKim).filter(x => x !== null);
+  const kAvg = avg(kd);
+  const best = takes.length ? Math.min(...takes.map(l => l.t)) : null;
+  const fmt = (x, u = '秒') => x === null ? '—' : x.toFixed(2) + u;
+  const stats = [
+    ['取った', `${g.taken} / ${g.field.length}`], ['お手つき', g.ote], ['取れなかった', g.missed],
+    ['平均の時間', fmt(tAvg)], ['いちばん速い', fmt(best)],
+  ];
+  if (curMode === 'speed') stats.push(['決まり字からの平均', kAvg === null ? '—' : (kAvg >= 0 ? '+' : '') + kAvg.toFixed(2) + '秒']);
+  $('#resStats').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
+  const kindTxt = { take: '<span style="color:var(--good)">取った</span>', miss: '<span style="color:var(--miss)">取れず</span>', kara: '<span class="sub">空札</span>', ote: '<span style="color:var(--miss)">お手つき</span>' };
+  $('#resLog').innerHTML = '<tr><th>番</th><th>上の句</th><th>決まり字</th><th>結果</th><th>時間</th></tr>' +
+    g.log.map(l => `<tr><td>${l.p.no}</td><td>${esc(l.p.kami)}</td><td><b style="color:var(--accent2)">${l.kim}</b></td>
+      <td>${kindTxt[l.kind]}${l.kind === 'ote' ? `（${l.wrong.no}番の札）` : ''}</td>
+      <td>${l.kind === 'take' ? l.t.toFixed(2) + '秒' + (l.fromKim !== null ? `<br><span class="sub">決${l.fromKim >= 0 ? '+' : ''}${l.fromKim.toFixed(2)}</span>` : '') : ''}</td></tr>`).join('');
+  // よく取れた歌は「覚えた」に
+  takes.forEach(l => memorized.add(l.p.no)); saveMem();
+  // 自己ベスト
+  if (curMode === 'speed' && tAvg !== null) {
+    const bestAvg = store.get('best_speed', null);
+    if (bestAvg === null || tAvg < bestAvg) { store.set('best_speed', tAvg); $('#resStats').insertAdjacentHTML('beforeend', '<div class="stat"><b>🏆</b><span>平均時間の自己ベスト更新！</span></div>'); }
+    else $('#resStats').insertAdjacentHTML('beforeend', `<div class="stat"><b>${bestAvg.toFixed(2)}秒</b><span>自己ベスト（平均）</span></div>`);
+  }
+  show('result');
+}
+$('#resAgain').onclick = () => { G = null; openSetup(curMode); };
+$('#resHome').onclick = goHome;
+
+/* ---------- 起動 ---------- */
+applyFont();
+refreshHome();
+</script>
+</body>
+</html>
