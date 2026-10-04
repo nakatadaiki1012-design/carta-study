@@ -1236,6 +1236,7 @@ async function runGame(g) {
     $('#pLine').innerHTML = '<span class="sub">札の位置を覚えよう</span>';
     const end = Date.now() + g.cfg.memo * 1000;
     const tick = setInterval(() => {
+      if (G !== g) return clearInterval(tick);
       const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
       setMsg(`暗記時間 のこり ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}（「次へ ▶」で読み始める）`, 'info');
     }, 250);

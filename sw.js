@@ -26,16 +26,25 @@ self.addEventListener('message', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  // 音声はRangeリクエストで来ることがあるので、保存済みなら丸ごと返す
+  const isAudio = url.pathname.endsWith('.mp3');
   e.respondWith(caches.open(VERSION).then(async c => {
-    const hit = await c.match(e.request.url, { ignoreSearch: true });
-    if (hit) return e.request.headers.has('range') ? rangeResponse(hit, e.request.headers.get('range')) : hit;
+    // 音声：保存済みを優先（Range にも対応）
+    if (isAudio) {
+      const hit = await c.match(e.request.url, { ignoreSearch: true });
+      if (hit) return e.request.headers.has('range') ? rangeResponse(hit, e.request.headers.get('range')) : hit;
+      try {
+        const res = await fetch(e.request);
+        if (res.status === 200 && !e.request.headers.has('range')) c.put(e.request, res.clone());
+        return res;
+      } catch (err) { return Response.error(); }
+    }
+    // 画面・プログラム：通信できれば最新を取りに行き、だめなら保存分（更新がすぐ届くように）
     try {
-      const res = await fetch(e.request);
-      if (res.ok && res.status === 200 && !e.request.headers.has('range') && (url.pathname.endsWith('.mp3') || url.pathname.endsWith('.js') || url.pathname.endsWith('.html') || url.pathname.endsWith('/'))) c.put(e.request, res.clone());
+      const res = await fetch(e.request, { cache: 'no-cache' });
+      if (res.status === 200) c.put(e.request, res.clone());
       return res;
     } catch (err) {
-      return (await c.match('index.html')) || Response.error();
+      return (await c.match(e.request, { ignoreSearch: true })) || (await c.match('index.html')) || Response.error();
     }
   }));
 });
