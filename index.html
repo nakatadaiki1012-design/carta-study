@@ -210,6 +210,7 @@
   dialog{background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:16px; padding:18px; width:min(560px,calc(100vw - 32px));}
   dialog::backdrop{background:rgba(0,0,0,.6);}
   dialog h3{margin:0 0 12px;}
+  dialog{max-height:calc(100vh - 32px); overflow-y:auto;}
   .row{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px;}
 
   /* 小さい画面の対戦中は、見出しを隠して読み上げ欄を細くし、畳を広く使う */
@@ -223,6 +224,10 @@
   }
   @media (max-width:560px){
     header h1 small{display:none;}
+    header h1{white-space:nowrap; font-size:1.3rem;}
+    header .btns{flex-wrap:nowrap; gap:6px;}
+    header .lbl{display:none;}
+    header button.ghost{padding:7px 11px; font-size:1rem;}
     .flash{grid-template-columns:1fr 1fr; gap:12px;}
     .choices{grid-template-columns:repeat(2,minmax(0,130px));}
   }
@@ -233,8 +238,9 @@
   <header>
     <h1 id="homeLink">百人一首 道場<small>覚える・取る・早く取る</small></h1>
     <div class="btns">
-      <button class="ghost" id="backBtn" hidden>← もどる</button>
-      <button class="ghost" id="setBtn">⚙ 設定</button>
+      <button class="ghost" id="backBtn" hidden aria-label="もどる">←<span class="lbl"> もどる</span></button>
+      <button class="ghost" id="helpBtn" aria-label="使い方">？<span class="lbl"> 使い方</span></button>
+      <button class="ghost" id="setBtn" aria-label="設定">⚙<span class="lbl"> 設定</span></button>
     </div>
   </header>
 
@@ -425,6 +431,23 @@
     </div>
   </section>
 </div>
+
+<!-- ===== 使い方 ===== -->
+<dialog id="help">
+  <h3>？ 使い方</h3>
+  <div class="sub" style="color:var(--text); line-height:1.75; font-size:.92rem;">
+    <p style="margin-top:0"><b>はじめての人</b>は「覚える」から。暗記カードで上の句を聞き、取り札をめくって下の句を確かめます。覚えたら「○ 覚えた」。<br>
+    <b>決まり字</b>（赤い字）は「ここまで聞けばどの札か決まる」文字です。決まり字で取れるようになると、ぐんと速くなります。</p>
+    <p><b>取る（中級）</b>：畳に並んだ札から、読まれた歌の下の句の札をタップ。まちがえると「お手つき」。</p>
+    <p><b>早く取る（上級）</b>：競技かるたと同じく、自陣と相手陣に25枚ずつ。<br>
+    ・相手陣の札を取ったら、自陣の札を1枚選んで相手に送ります（送り札）。<br>
+    ・取られたり、お手つきをしたりすると、相手から1枚送られてきます。<br>
+    ・<b>先に自陣の札をなくしたら勝ち</b>。相手の強さは準備画面で選べます。</p>
+    <p><b>おすすめの練習の順番</b>：暗記カード → 4択 → 一覧で決まり字を確認 → 取る（文字を出す） → 取る（文字なし・空札あり） → 早く取る（決まり字の練習） → 早く取る（対戦）。</p>
+    <p style="margin-bottom:0">まちがえた歌は自動で記録され、⚙ 設定の範囲「苦手な歌」でまとめて練習できます。</p>
+  </div>
+  <div class="btns" style="justify-content:flex-end;margin-top:12px;"><button id="helpClose">閉じる</button></div>
+</dialog>
 
 <!-- ===== 設定 ===== -->
 <dialog id="settings">
@@ -709,6 +732,7 @@ function show(id) {
   SECTIONS.forEach(s => $('#' + s).classList.toggle('hidden', s !== id));
   document.body.classList.toggle('playing', id === 'play');
   $('#backBtn').hidden = id === 'home';
+  $('#helpBtn').hidden = id !== 'home';
   window.scrollTo(0, 0);
 }
 function goHome() {
@@ -755,6 +779,8 @@ $('#sReset').onclick = () => {
   setTimeout(() => { delete b.dataset.armed; b.textContent = '記録をリセット'; }, 3000);
 };
 $('#sClose').onclick = () => $('#settings').close();
+$('#helpBtn').onclick = () => $('#help').showModal();
+$('#helpClose').onclick = () => $('#help').close();
 $('#settings').addEventListener('close', () => {
   S.range = $('#sRange').value; S.voiceMode = $('#sVoiceMode').value; S.voiceName = $('#sVoiceName').value;
   S.real = $('#sReal').value; S.font = $('#sFont').value;
@@ -1483,6 +1509,8 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 /* ---------- 起動 ---------- */
 applyFont();
 refreshHome();
+// はじめて開いたときは使い方を見せる
+if (!store.get('seenHelp', false)) { store.set('seenHelp', true); setTimeout(() => $('#help').showModal(), 300); }
 </script>
 </body>
 </html>
