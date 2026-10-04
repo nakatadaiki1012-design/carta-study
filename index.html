@@ -359,6 +359,8 @@
       <h2 id="setupTitle" style="margin:0 0 4px;font-family:var(--card-font);"></h2>
       <p class="sub" id="setupDesc" style="margin-top:0;"></p>
       <div class="row">
+        <label class="ctl">練習する範囲
+          <select id="optRange"></select></label>
         <label class="ctl">場に並べる札の枚数
           <select id="optCount"></select></label>
         <label class="ctl">読む速さ
@@ -512,12 +514,12 @@ const saveMem = () => store.set('mem', [...memorized]);
 
 const RANGES = [['all', '全100首']];
 for (let i = 0; i < 5; i++) RANGES.push([`n${i}`, `${i * 20 + 1}〜${i * 20 + 20}番`]);
-RANGES.push(['k1', '1字決まり（7首）'], ['k2', '2字決まり'], ['k3', '3字決まり'], ['k4', '4字以上の決まり字'], ['unmem', 'まだ覚えていない歌'], ['weak', '苦手な歌（まちがえた歌）']);
+RANGES.push(['k1', '1字決まり'], ['k2', '2字決まり'], ['k3', '3字決まり'], ['k4', '4字以上の決まり字'], ['unmem', 'まだ覚えていない歌'], ['weak', '苦手な歌（まちがえた歌）']);
 // 歌ごとの成績：{ 番号: [取れた回数, まちがえた回数] }。まちがいが多い歌ほど「苦手」
 let record = store.get('record', {});
 function addRecord(no, ok) { const r = record[no] || (record[no] = [0, 0]); r[ok ? 0 : 1]++; store.set('record', record); }
 const weakness = no => { const r = record[no]; return r ? r[1] * 2 - r[0] : 0; };
-function rangePoems(r = S.range) {
+function rangePoems(r = S.range, fallback = true) {
   let list;
   if (r[0] === 'n') { const i = +r[1]; list = POEMS.slice(i * 20, i * 20 + 20); }
   else if (r === 'k1' || r === 'k2' || r === 'k3') list = POEMS.filter(p => p.kimariji.length === +r[1]);
@@ -525,7 +527,7 @@ function rangePoems(r = S.range) {
   else if (r === 'unmem') list = POEMS.filter(p => !memorized.has(p.no));
   else if (r === 'weak') list = POEMS.filter(p => weakness(p.no) > 0).sort((a, b) => weakness(b.no) - weakness(a.no));
   else list = POEMS;
-  return list.length ? list : POEMS;
+  return list.length || !fallback ? list : POEMS;
 }
 const rangeName = () => RANGES.find(r => r[0] === S.range)[1];
 
@@ -1027,6 +1029,9 @@ function openSetup(m) {
   curMode = m; const M = MODES[m];
   const saved = store.get('opt_' + m, {});
   $('#setupTitle').textContent = M.title; $('#setupDesc').textContent = M.desc;
+  $('#optRange').innerHTML = RANGES.map(([v, t]) => `<option value="${v}">${t}（${rangePoems(v, false).length}首）</option>`).join('');
+  $('#optRange').value = S.range;
+  $('#optRange').onchange = () => { S.range = $('#optRange').value; saveS(); openSetup(m); };
   const n = rangePoems().length;
   $('#optCount').innerHTML = M.counts.map(c => `<option value="${c}">${c}枚</option>`).join('');
   // スマホなど小さい画面では、札が大きく見える25枚を最初の枚数にする
