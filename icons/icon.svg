@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1f4428"/>
+  <rect x="136" y="56" width="240" height="400" rx="14" fill="#2e5f3a"/>
+  <rect x="148" y="68" width="216" height="376" rx="8" fill="#fbf6e6"/>
+  <text x="256" y="300" font-size="220" text-anchor="middle" font-family="'Shippori Mincho B1','Yu Mincho','Hiragino Mincho ProN',serif" font-weight="800" fill="#1b1712">百</text>
+  <rect x="190" y="350" width="132" height="10" rx="5" fill="#c0392b"/>
+</svg>

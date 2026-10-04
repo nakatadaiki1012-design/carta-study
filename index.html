@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>百人一首 道場</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="theme-color" content="#14161d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="百人一首">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Yuji+Syuku&display=swap" rel="stylesheet">
@@ -385,6 +391,7 @@
       <div class="btns"><button id="resAgain">もう一度</button><button class="sec" id="resHome">ホームへ</button></div>
     </div>
     <div class="panel">
+      <div id="resWeak" style="margin-bottom:14px;"></div>
       <h3 style="margin-top:0;">一枚ずつの記録</h3>
       <div style="overflow-x:auto;"><table class="log" id="resLog"></table></div>
     </div>
@@ -419,8 +426,12 @@
         <option value="brush">毛筆風</option>
       </select></label>
   </div>
+  <div class="row" id="offlineRow" hidden>
+    <button class="sec" id="sOffline">📥 読み上げ音声をすべて保存（オフライン用・約9MB）</button>
+    <span class="sub" id="sOfflineMsg"></span>
+  </div>
   <div class="btns" style="justify-content:space-between;margin-top:8px;">
-    <button class="ghost" id="sReset">覚えた記録をリセット</button>
+    <button class="ghost" id="sReset">記録をリセット</button>
     <button id="sClose">閉じる</button>
   </div>
 </dialog>
@@ -450,13 +461,18 @@ const saveMem = () => store.set('mem', [...memorized]);
 
 const RANGES = [['all', '全100首']];
 for (let i = 0; i < 5; i++) RANGES.push([`n${i}`, `${i * 20 + 1}〜${i * 20 + 20}番`]);
-RANGES.push(['k1', '1字決まり（7首）'], ['k2', '2字決まり'], ['k3', '3字決まり'], ['k4', '4字以上の決まり字'], ['unmem', 'まだ覚えていない歌']);
+RANGES.push(['k1', '1字決まり（7首）'], ['k2', '2字決まり'], ['k3', '3字決まり'], ['k4', '4字以上の決まり字'], ['unmem', 'まだ覚えていない歌'], ['weak', '苦手な歌（まちがえた歌）']);
+// 歌ごとの成績：{ 番号: [取れた回数, まちがえた回数] }。まちがいが多い歌ほど「苦手」
+let record = store.get('record', {});
+function addRecord(no, ok) { const r = record[no] || (record[no] = [0, 0]); r[ok ? 0 : 1]++; store.set('record', record); }
+const weakness = no => { const r = record[no]; return r ? r[1] * 2 - r[0] : 0; };
 function rangePoems(r = S.range) {
   let list;
   if (r[0] === 'n') { const i = +r[1]; list = POEMS.slice(i * 20, i * 20 + 20); }
   else if (r === 'k1' || r === 'k2' || r === 'k3') list = POEMS.filter(p => p.kimariji.length === +r[1]);
   else if (r === 'k4') list = POEMS.filter(p => p.kimariji.length >= 4);
   else if (r === 'unmem') list = POEMS.filter(p => !memorized.has(p.no));
+  else if (r === 'weak') list = POEMS.filter(p => weakness(p.no) > 0).sort((a, b) => weakness(b.no) - weakness(a.no));
   else list = POEMS;
   return list.length ? list : POEMS;
 }
@@ -696,9 +712,9 @@ $('#sTest').onclick = () => {
 // 2回押すとリセット（確認ダイアログを使わない）
 $('#sReset').onclick = () => {
   const b = $('#sReset');
-  if (b.dataset.armed) { memorized.clear(); saveMem(); refreshHome(); b.textContent = 'リセットしました'; delete b.dataset.armed; return; }
+  if (b.dataset.armed) { memorized.clear(); saveMem(); record = {}; store.set('record', record); store.set('best_speed', null); refreshHome(); b.textContent = 'リセットしました'; delete b.dataset.armed; return; }
   b.dataset.armed = '1'; b.textContent = 'もう一度押すと消えます';
-  setTimeout(() => { delete b.dataset.armed; b.textContent = '覚えた記録をリセット'; }, 3000);
+  setTimeout(() => { delete b.dataset.armed; b.textContent = '記録をリセット'; }, 3000);
 };
 $('#sClose').onclick = () => $('#settings').close();
 $('#settings').addEventListener('close', () => {
@@ -763,6 +779,19 @@ $('#cardSay').onclick = () => { stopReading(); readPoem(deck[deckIdx], { pace: '
 $('#cardOk').onclick = () => { memorized.add(deck[deckIdx].no); saveMem(); cardMove(1); };
 $('#cardNg').onclick = () => { memorized.delete(deck[deckIdx].no); saveMem(); cardMove(1); };
 
+// 指定した歌を暗記カードで開く
+function openCard(no) {
+  G = null; stopReading();
+  show('learn');
+  $('#onlyUnmem').checked = false;
+  deck = rangePoems(); deckIdx = deck.findIndex(p => p.no === no);
+  if (deckIdx < 0) { deck = POEMS; deckIdx = no - 1; }
+  curTab = 'card';
+  $$('#learnTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === 'card'));
+  ['card', 'quiz', 'voice', 'list'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== 'card'));
+  cardShow(); window.scrollTo(0, 0);
+}
+
 /* --- 4択クイズ --- */
 let quiz = null;
 function quizInit() {
@@ -802,7 +831,7 @@ function quizAnswer(p, el) {
   } else {
     el.classList.add('ng'); right.classList.add('reveal');
     $('#quizFb').textContent = '× ざんねん（光っている札が正解）'; $('#quizFb').className = 'feedback ng';
-    memorized.delete(q.no); saveMem();
+    memorized.delete(q.no); saveMem(); addRecord(q.no, false);
   }
   $('#quizPos').textContent = `第${quiz.i + 1}問 / ${quiz.qs.length}　正解 ${quiz.score}`;
   $('#quizQ').innerHTML = kamiWithKim(q) + `<div class="sub" style="font-size:.95rem">${q.shimoKana.replace(' ', '　')}</div>`;
@@ -893,14 +922,7 @@ function listInit() {
       <div><div class="t">${kamiWithKim(p)}</div><div class="t" style="color:var(--sub)">${p.shimoKana.replace(' ', '　')}</div>
       <div class="a">${esc(p.author)}　決まり字 ${p.kimariji.length}字</div></div>
     </div>`).join('');
-  $$('#listBox .item').forEach(it => it.onclick = () => {
-    $('#onlyUnmem').checked = false;
-    deck = rangePoems(); deckIdx = deck.findIndex(p => p.no === +it.dataset.no);
-    curTab = 'card';
-    $$('#learnTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === 'card'));
-    ['card', 'quiz', 'voice', 'list'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== 'card'));
-    cardShow(); window.scrollTo(0, 0);
-  });
+  $$('#listBox .item').forEach(it => it.onclick = () => openCard(+it.dataset.no));
 }
 
 /* ======================================================
@@ -959,9 +981,19 @@ function startGame(cfg) {
   renderField();
   $('#pLine').innerHTML = ''; setMsg('', '');
   updateTop();
+  keepAwake(true);
   runGame(G);
 }
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.onrelease = () => { wakeLock = null; }; }
+    else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && G && G.phase !== 'done') keepAwake(true); });
 function endGame(showResult) {
+  keepAwake(false);
   if (!G) return;
   stopReading(); G.phase = 'done';
   const g = G; G = showResult ? G : null;
@@ -1221,8 +1253,17 @@ function renderResult(g) {
     g.log.map(l => `<tr><td>${l.p.no}</td><td>${esc(l.p.kami)}</td><td><b style="color:var(--accent2)">${l.kim}</b></td>
       <td>${kindTxt[l.kind]}${l.kind === 'ote' ? `（${l.wrong.no}番の札）` : ''}</td>
       <td>${l.kind === 'take' ? l.t.toFixed(2) + '秒' + (l.fromKim !== null ? `<br><span class="sub">決${l.fromKim >= 0 ? '+' : ''}${l.fromKim.toFixed(2)}</span>` : '') : ''}</td></tr>`).join('');
-  // よく取れた歌は「覚えた」に
+  // よく取れた歌は「覚えた」に。成績を記録し、まちがえた歌を復習できるようにする
   takes.forEach(l => memorized.add(l.p.no)); saveMem();
+  g.log.forEach(l => { if (l.kind === 'take') addRecord(l.p.no, true); else if (l.kind === 'miss' || l.kind === 'ote') addRecord(l.p.no, false); });
+  const bad = [...new Map(g.log.filter(l => l.kind === 'miss' || l.kind === 'ote').map(l => [l.p.no, l.p])).values()];
+  $('#resWeak').innerHTML = bad.length
+    ? `<h3 style="margin-top:0;">復習したい歌（${bad.length}首）</h3><div class="list">${bad.map(p => `
+        <div class="item" data-no="${p.no}"><div class="n">${p.no}</div><div><div class="t">${kamiWithKim(p)}</div>
+        <div class="t" style="color:var(--sub)">${p.shimoKana.replace(' ', '　')}</div></div></div>`).join('')}</div>
+        <p class="sub" style="margin-bottom:0">タップすると暗記カードで開きます。⚙ 設定の範囲「苦手な歌」でまとめて練習できます。</p>`
+    : '<p style="margin:0">まちがえた歌はありません。すばらしい！</p>';
+  $$('#resWeak .item').forEach(it => it.onclick = () => openCard(+it.dataset.no));
   // 自己ベスト
   if (curMode === 'speed' && tAvg !== null) {
     const bestAvg = store.get('best_speed', null);
@@ -1233,6 +1274,33 @@ function renderResult(g) {
 }
 $('#resAgain').onclick = () => { G = null; openSetup(curMode); };
 $('#resHome').onclick = goHome;
+
+/* ---------- キーボード操作 ----------
+   対戦中：スペース／Enter＝次へ　暗記カード：スペース＝めくる、←→＝前後、O＝覚えた、X＝まだ */
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select, textarea, dialog')) return;
+  const on = id => !$('#' + id).classList.contains('hidden');
+  if (on('play') && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); $('#pSkip').click(); }
+  else if (on('learn') && curTab === 'card') {
+    const map = { ' ': '#cardFlip', ArrowLeft: '#cardPrev', ArrowRight: '#cardNext', o: '#cardOk', x: '#cardNg' };
+    const b = map[e.key]; if (b) { e.preventDefault(); $(b).click(); }
+  }
+});
+
+/* ---------- オフライン対応（ホーム画面に追加して使うとき） ---------- */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register('sw.js').then(() => {
+    $('#offlineRow').hidden = false;
+    $('#sOffline').onclick = async () => {
+      const reg = await navigator.serviceWorker.ready;
+      reg.active && reg.active.postMessage('cache-all-audio');
+      $('#sOfflineMsg').textContent = '保存中…';
+    };
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data && e.data.total) $('#sOfflineMsg').textContent = e.data.cached < e.data.total ? `保存中… ${e.data.cached}/${e.data.total}` : '保存しました。電波がなくても使えます';
+    });
+  }).catch(() => {});
+}
 
 /* ---------- 起動 ---------- */
 applyFont();
