@@ -51,7 +51,7 @@
   select{background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font-size:.95rem; max-width:100%;}
   label.ctl{display:flex; flex-direction:column; gap:4px; font-size:.78rem; color:var(--sub);}
   .chk{display:flex; align-items:center; gap:7px; font-size:.9rem; cursor:pointer;}
-  .chk input{width:18px; height:18px; accent-color:var(--accent);}
+  .chk input{width:18px; height:18px; flex:0 0 18px; accent-color:var(--accent);}
   .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px;}
 
   /* ===== ホーム ===== */
@@ -106,6 +106,8 @@
   .tori.reveal{box-shadow:0 0 0 4px var(--accent), 0 0 22px var(--accent); animation:pulse 1s infinite;}
   .tori.gone{opacity:0; transform:scale(.6) translateY(-20px); pointer-events:none;}
   .tori.flip.gone{transform:rotate(180deg) scale(.6) translateY(20px);}
+  .tori.sent{animation:sent .9s ease-out;}
+  @keyframes sent{0%{box-shadow:0 0 0 4px #4fc3ff, 0 0 18px #4fc3ff;}100%{box-shadow:0 2px 0 #0d2413, 0 4px 8px rgba(0,0,0,.35);}}
   @keyframes shake{0%,100%{translate:0}25%{translate:-6px}75%{translate:6px}}
   @keyframes pulse{50%{box-shadow:0 0 0 4px var(--accent), 0 0 4px var(--accent);}}
 
@@ -233,6 +235,7 @@
       </div>
       <div class="progress"><i id="memBar"></i></div>
       <div class="sub" style="margin-top:8px;">練習する範囲：<b id="rangeLabel" style="color:var(--text)"></b>（⚙ 設定で変更）</div>
+      <div class="sub" id="homeStats" style="margin-top:4px;"></div>
     </div>
     <div class="modes">
       <button class="mode" data-go="learn">
@@ -251,7 +254,8 @@
         <p>決まり字で取る反応速度トレーニング。50枚・相手陣は逆さ・決まり字の変化にも対応。反応時間を記録。</p></div>
       </button>
     </div>
-    <p class="sub" style="margin-top:14px;">🔊 音声の読み上げはブラウザの日本語音声を使います。iPhoneは消音スイッチをオフにしてください。</p>
+    <p class="sub" style="margin-top:14px;">🔊 かるたの読手のように読み上げます（⚙ 設定で端末の声にも変更可）。iPhoneは消音スイッチをオフにしてください。<br>
+    📱 ブラウザのメニューから「ホーム画面に追加」すると、アプリのように使えます。</p>
   </section>
 
   <!-- ===== 覚える ===== -->
@@ -284,6 +288,9 @@
         <button class="bad" id="cardNg">× まだ</button>
         <button class="good" id="cardOk">○ 覚えた</button>
         <button class="sec" id="cardNext">▶</button>
+      </div>
+      <div class="btns" style="justify-content:center;margin-top:10px;">
+        <button class="ghost" id="cardAuto">⏯ 連続再生（聞き流し）</button>
       </div>
     </div>
 
@@ -363,6 +370,7 @@
         <label class="chk"><input type="checkbox" id="optHint">札に決まり字のヒントを出す</label>
         <label class="chk"><input type="checkbox" id="optFlip">相手陣の札を逆さにする（本番風）</label>
         <label class="chk"><input type="checkbox" id="optJoka">序歌（なにわづに…）から始める</label>
+        <label class="chk"><input type="checkbox" id="optCut">決まり字まで読んだら止める（決まり字の練習）</label>
         <label class="chk"><input type="checkbox" id="optHonban">本番の読み方（前の歌の下の句をもう一度読み、間をおいて次へ）</label>
       </div>
       <div class="btns" style="margin-top:14px;"><button id="startBtn">▶ はじめる</button></div>
@@ -373,7 +381,7 @@
   <section id="play" class="hidden">
     <div class="reader">
       <div class="top">
-        <span><b id="pPos"></b>　取った <b id="pTaken">0</b>　お手つき <b id="pOte">0</b></span>
+        <span><b id="pPos"></b>　取った <b id="pTaken">0</b>　お手つき <b id="pOte">0</b><span id="pJin"></span></span>
         <span class="btns"><button class="ghost" id="pSkip">次へ ▶</button><button class="ghost" id="pQuit">やめる</button></span>
       </div>
       <div class="line" id="pLine"></div>
@@ -677,6 +685,7 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 function goHome() {
+  stopAuto();
   stopReading(); stopRec(); endGame(false);
   refreshHome(); show('home');
 }
@@ -684,6 +693,8 @@ function refreshHome() {
   $('#memCount').textContent = `${memorized.size} / 100`;
   $('#memBar').style.width = memorized.size + '%';
   $('#rangeLabel').textContent = `${rangeName()}（${rangePoems().length}首）`;
+  const weak = POEMS.filter(p => weakness(p.no) > 0).length, best = store.get('best_speed', null);
+  $('#homeStats').textContent = [weak ? `苦手な歌 ${weak}首` : '', best ? `早取りの自己ベスト（平均）${best.toFixed(2)}秒` : ''].filter(Boolean).join('　／　');
   [['#mini1', 1, false], ['#mini2', 87, false], ['#mini3', 77, true]].forEach(([sel, no, back]) => {
     const box = $(sel); box.innerHTML = ''; box.append(toriEl(POEMS[no - 1], { back }));
   });
@@ -729,7 +740,7 @@ $('#settings').addEventListener('close', () => {
    ====================================================== */
 let curTab = 'card';
 function openTab(t, reset = false) {
-  curTab = t; stopReading(); stopRec();
+  stopAuto(); curTab = t; stopReading(); stopRec();
   $$('#learnTabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   ['card', 'quiz', 'voice', 'list'].forEach(x => $('#tab-' + x).classList.toggle('hidden', x !== t));
   if (t === 'card') cardInit(reset);
@@ -769,8 +780,26 @@ function cardFlip() {
   showYomiShimo($('#cardYomi').firstChild, flipped);
   $('#cardShimo').textContent = flipped ? p.shimoKana.replace(' ', '　') : '下の句は？　→ 札をタップしてめくる';
   $('#cardFlip').textContent = flipped ? 'かくす' : 'めくる';
-  if (flipped) { stopReading(); sayShimo(p, 'slow'); }
+  if (flipped) { stopReading(); return sayShimo(p, 'slow'); }
 }
+// 連続再生：上の句 → 札をめくる → 下の句 → 次の歌、をくり返す
+let autoId = 0;
+function stopAuto() { if (autoId) { autoId = 0; $('#cardAuto').textContent = '⏯ 連続再生（聞き流し）'; stopReading(); } }
+async function runAuto() {
+  const my = autoId = Date.now();
+  $('#cardAuto').textContent = '⏹ 連続再生を止める';
+  const alive = () => autoId === my;
+  while (alive()) {
+    cardShow(false);
+    await readPoem(deck[deckIdx], { pace: 'slow', shimo: false }); if (!alive()) return;
+    await sleep(1200); if (!alive()) return;
+    await cardFlip(); if (!alive()) return;
+    await sleep(1800); if (!alive()) return;
+    deckIdx = (deckIdx + 1) % deck.length;
+  }
+}
+$('#cardAuto').onclick = () => autoId ? stopAuto() : runAuto();
+['#cardPrev', '#cardSay', '#cardFlip', '#cardNg', '#cardOk', '#cardNext'].forEach(id => $(id).addEventListener('pointerdown', stopAuto));
 function cardMove(d) { deckIdx = (deckIdx + d + deck.length) % deck.length; cardShow(); }
 $('#cardFlip').onclick = cardFlip;
 $('#cardPrev').onclick = () => cardMove(-1);
@@ -955,6 +984,7 @@ function openSetup(m) {
   $('#optFlip').checked = saved.flip ?? M.flip;
   $('#optJoka').checked = saved.joka ?? M.joka;
   $('#optHonban').checked = saved.honban ?? M.honban;
+  $('#optCut').checked = saved.cut ?? false;
   $('#optOrder').value = saved.order ?? M.order;
   $('#optMemo').value = saved.memo ?? M.memo;
   if (n < +$('#optCount').value) $('#setupDesc').textContent += `（いまの範囲は${n}首なので、${n}枚で行います）`;
@@ -964,7 +994,7 @@ $('#startBtn').onclick = () => {
   const cfg = {
     count: +$('#optCount').value, pace: $('#optPace').value, kara: $('#optKara').checked,
     text: $('#optText').checked, hint: $('#optHint').checked, flip: $('#optFlip').checked, joka: $('#optJoka').checked,
-    honban: $('#optHonban').checked, order: $('#optOrder').value, memo: +$('#optMemo').value,
+    honban: $('#optHonban').checked, order: $('#optOrder').value, memo: +$('#optMemo').value, cut: $('#optCut').checked,
   };
   store.set('opt_' + curMode, cfg);
   startGame(Object.assign({}, MODES[curMode], cfg));
@@ -1096,6 +1126,31 @@ function setMsg(t, cls) { $('#pMsg').textContent = t; $('#pMsg').className = 'ms
 function updateTop() {
   $('#pPos').textContent = G.i < 0 ? '準備' : `${G.i + 1} / ${G.queue.length} 首目`;
   $('#pTaken').textContent = G.taken; $('#pOte').textContent = G.ote;
+  $('#pJin').innerHTML = versus() ? `　自陣 <b>${jinCount(false)}</b>　相手陣 <b>${jinCount(true)}</b>` : '';
+}
+/* ---- 対戦ルール（相手陣があるとき）：取れなかった札は「仮想の相手」が取ったことにする ----
+   ・相手陣の札を取ったら、自陣の札を1枚相手に送る（送り札）
+   ・自陣の札を相手に取られたら、相手から1枚送られてくる
+   ・お手つきをしたら、相手から1枚送られてくる
+   先に自陣の札がなくなったほうの勝ち */
+const versus = () => G && $$('#field .jin').length > 1;
+const jinOf = el => el.closest('.jin').classList.contains('opp');
+const jinCount = opp => $$(`#field .jin${opp ? '.opp' : ':not(.opp)'} .tori:not(.gone)`).length;
+function sendCard(fromOpp) {
+  const src = $$(`#field .jin${fromOpp ? '.opp' : ':not(.opp)'} .tori:not(.gone)`);
+  if (!src.length) return null;
+  // 送る札は、決まり字の長い（取られにくい）札から選ぶ
+  const el = src.sort((a, b) => POEMS[b.dataset.no - 1].kimariji.length - POEMS[a.dataset.no - 1].kimariji.length)[0];
+  const dst = $(`#field .jin${fromOpp ? ':not(.opp)' : '.opp'}`);
+  const row = fromOpp ? dst.lastElementChild : dst.firstElementChild;          // 受け取る側の下段（その人の手前）
+  const sides = [...row.children];
+  const side = sides.sort((a, b) => a.querySelectorAll('.tori:not(.gone)').length - b.querySelectorAll('.tori:not(.gone)').length)[0];
+  el.classList.toggle('flip', !fromOpp);
+  el.querySelector('.hint')?.remove();
+  side.append(el);
+  el.classList.remove('sent'); void el.offsetWidth; el.classList.add('sent');
+  updateHints();
+  return POEMS[el.dataset.no - 1];
 }
 let skipWait = null;
 const waitOrSkip = ms => new Promise(r => {
@@ -1134,7 +1189,7 @@ async function runGame(g) {
     if (!alive()) return;
     await sleep(900);
   }
-  while (alive() && g.onField.size > 0 && g.i < g.queue.length - 1) {
+  while (alive() && g.onField.size > 0 && g.i < g.queue.length - 1 && !(versus() && (jinCount(false) === 0 || jinCount(true) === 0))) {
     g.i++;
     const p = g.queue[g.i];
     const kara = !g.onField.has(p.no);
@@ -1162,7 +1217,11 @@ async function runGame(g) {
       pace, shimo: !kara || g.cfg.honban,
       onChar: (n, ch) => {
         // 決まり字の最後の音が聞こえた瞬間（子音から母音に移るくらい）を基準にする
-        if (n === kim.length) g.cur.kimAt = performance.now() + 120 / PACE[pace].audio;
+        if (n === kim.length) {
+          g.cur.kimAt = performance.now() + 120 / PACE[pace].audio;
+          // 決まり字の練習：決まり字を言い終えたところで読み上げを止める
+          if (g.cfg.cut) { const cur = g.cur; setTimeout(() => { if (G === g && g.cur === cur && g.phase === 'reading') stopReading(); }, 380 / PACE[pace].audio); }
+        }
         if (g.cfg.text) line.insertAdjacentText('beforeend', ch);
         else if (n === 1) line.innerHTML = '<span class="sub">🔊 読み上げ中…</span>';
       },
@@ -1195,10 +1254,15 @@ async function runGame(g) {
     el && el.classList.add('reveal');
     setMsg(`取れなかった…　光っている札です（決まり字「${kim}」）`, 'ng');
     await waitOrSkip(2200);
-    if (el) { el.classList.remove('reveal'); el.classList.add('gone'); }
+    if (el) {
+      el.classList.remove('reveal'); el.classList.add('gone');
+      // 自陣の札を相手に取られた → 相手から1枚送られてくる
+      if (versus() && !jinOf(el)) { const sp = sendCard(true); if (sp) setMsg(`相手が自陣の札を取り、${sp.no}番の札を送ってきました`, 'ng'); }
+    }
     g.onField.delete(p.no);
     updateTop();
   }
+  if (alive() && versus()) { g.ownLeft = jinCount(false); g.oppLeft = jinCount(true); g.winner = g.ownLeft === 0 ? 'me' : g.oppLeft === 0 ? 'opp' : null; }
   if (alive()) { await sleep(500); endGame(true); }
 }
 function onTap(p, el) {
@@ -1224,12 +1288,23 @@ function onTap(p, el) {
       await Promise.race([Promise.all([sayShimo(p, g.cfg.pace), sleep(900)]), waitOrSkip(g.cfg.wait + 4000)]);
       stopReading();
       el.classList.add('gone'); g.onField.delete(p.no);
+      // 相手陣の札を取った → 自陣の札を1枚送る
+      if (versus() && jinOf(el)) { const sp = sendCard(false); if (sp) setMsg(`${$('#pMsg').textContent}　→ ${sp.no}番の札を相手に送りました`, 'ok'); }
+      updateTop();
       await sleep(300);
     })();
   } else {
+    // 競技かるたのルール：正しい札と同じ陣の札にさわってもお手つきにならない（相手陣があるときだけ）
+    const right = $(`#field .tori[data-no="${c.p.no}"]`);
+    if (!c.kara && right && $$('#field .jin').length > 1 && right.closest('.jin') === el.closest('.jin')) {
+      el.classList.remove('ng'); void el.offsetWidth; el.classList.add('ng');
+      setMsg('ちがう札（同じ陣なのでお手つきにはなりません）', 'info');
+      return;
+    }
     g.ote++;
     el.classList.remove('ng'); void el.offsetWidth; el.classList.add('ng');
     g.log.push({ p: c.p, kind: 'ote', wrong: p, kim: c.kim });
+    if (versus()) { const sp = sendCard(true); if (sp) setTimeout(() => setMsg(`お手つき：相手から${sp.no}番の札が送られてきました`, 'ng'), 600); }
     setMsg(c.kara ? 'お手つき！（いまのは空札＝場にない歌）' : 'お手つき！', 'ng');
     updateTop();
   }
@@ -1247,6 +1322,7 @@ function renderResult(g) {
     ['平均の時間', fmt(tAvg)], ['いちばん速い', fmt(best)],
   ];
   if (curMode === 'speed') stats.push(['決まり字からの平均', kAvg === null ? '—' : (kAvg >= 0 ? '+' : '') + kAvg.toFixed(2) + '秒']);
+  if (g.winner) stats.unshift([g.winner === 'me' ? `自陣の札をなくした（相手陣に${g.oppLeft}枚残し）` : `相手陣が先になくなった（自陣に${g.ownLeft}枚残り）`, g.winner === 'me' ? '勝ち 🎉' : '負け']);
   $('#resStats').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
   const kindTxt = { take: '<span style="color:var(--good)">取った</span>', miss: '<span style="color:var(--miss)">取れず</span>', kara: '<span class="sub">空札</span>', ote: '<span style="color:var(--miss)">お手つき</span>' };
   $('#resLog').innerHTML = '<tr><th>番</th><th>上の句</th><th>決まり字</th><th>結果</th><th>時間</th></tr>' +
@@ -1283,7 +1359,7 @@ document.addEventListener('keydown', e => {
   if (on('play') && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); $('#pSkip').click(); }
   else if (on('learn') && curTab === 'card') {
     const map = { ' ': '#cardFlip', ArrowLeft: '#cardPrev', ArrowRight: '#cardNext', o: '#cardOk', x: '#cardNg' };
-    const b = map[e.key]; if (b) { e.preventDefault(); $(b).click(); }
+    const b = map[e.key]; if (b) { e.preventDefault(); stopAuto(); $(b).click(); }
   }
 });
 
