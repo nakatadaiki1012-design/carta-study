@@ -108,6 +108,7 @@
   .tori.gone{opacity:0; transform:scale(.6) translateY(-20px); pointer-events:none;}
   .tori.flip.gone{transform:rotate(180deg) scale(.6) translateY(20px);}
   .tori.sent{animation:sent .9s ease-out;}
+  .tatami.choosing .jin:not(.opp) .tori:not(.gone){outline:2px dashed #4fc3ff; outline-offset:2px; cursor:pointer;}
   @keyframes sent{0%{box-shadow:0 0 0 4px #4fc3ff, 0 0 18px #4fc3ff;}100%{box-shadow:0 2px 0 #0d2413, 0 4px 8px rgba(0,0,0,.35);}}
   @keyframes shake{0%,100%{translate:0}25%{translate:-6px}75%{translate:6px}}
   @keyframes pulse{50%{box-shadow:0 0 0 4px var(--accent), 0 0 4px var(--accent);}}
@@ -1166,11 +1167,11 @@ function updateTop() {
 const versus = () => G && $$('#field .jin').length > 1;
 const jinOf = el => el.closest('.jin').classList.contains('opp');
 const jinCount = opp => $$(`#field .jin${opp ? '.opp' : ':not(.opp)'} .tori:not(.gone)`).length;
-function sendCard(fromOpp) {
+function sendCard(fromOpp, chosen) {
   const src = $$(`#field .jin${fromOpp ? '.opp' : ':not(.opp)'} .tori:not(.gone)`);
   if (!src.length) return null;
-  // 送る札は、決まり字の長い（取られにくい）札から選ぶ
-  const el = src.sort((a, b) => POEMS[b.dataset.no - 1].kimariji.length - POEMS[a.dataset.no - 1].kimariji.length)[0];
+  // 送る札：自分で選んだ札。選ばなかったときは、決まり字の長い（取られにくい）札
+  const el = chosen && src.includes(chosen) ? chosen : src.sort((a, b) => POEMS[b.dataset.no - 1].kimariji.length - POEMS[a.dataset.no - 1].kimariji.length)[0];
   const dst = $(`#field .jin${fromOpp ? ':not(.opp)' : '.opp'}`);
   const row = fromOpp ? dst.lastElementChild : dst.firstElementChild;          // 受け取る側の下段（その人の手前）
   const sides = [...row.children];
@@ -1326,6 +1327,11 @@ function oppTake(g, c) {
 }
 function onTap(p, el) {
   const g = G;
+  // 送り札を選んでいるとき：自陣の札をタップすると、その札を送る
+  if (g && g.phase === 'okuri' && g.okuriPick) {
+    if (!jinOf(el) && !el.classList.contains('gone')) { g.okuriChosen = el; const f = g.okuriPick; g.okuriPick = null; f(); }
+    return;
+  }
   if (!g || !g.cur || !['reading', 'wait'].includes(g.phase) || g.cur.taken || el.classList.contains('gone')) return;
   const c = g.cur;
   if (p.no === c.p.no) {
@@ -1344,11 +1350,21 @@ function onTap(p, el) {
     $('#pLine').innerHTML = `${kamiWithKim(p, c.kim)}<span class="shimo">${p.shimoKana}</span>`;
     updateTop();
     c.afterTake = (async () => {
-      await Promise.race([Promise.all([sayShimo(p, g.cfg.pace), sleep(900)]), waitOrSkip(g.cfg.wait + 4000)]);
+      // 相手陣の札を取った → 下の句を聞きながら、相手に送る札を自陣から選ぶ（7秒で自動）
+      const okuri = versus() && jinOf(el) && jinCount(false) > 0;
+      let pick = sleep(0);
+      g.okuriChosen = null;
+      if (okuri) {
+        g.phase = 'okuri';
+        $('#field').classList.add('choosing');
+        setMsg(`${$('#pMsg').textContent}　送り札：相手に送る札を自陣からタップ（7秒で自動）`, 'ok');
+        pick = new Promise(res => { g.okuriPick = res; setTimeout(res, 7000); });
+      }
+      await Promise.race([Promise.all([sayShimo(p, g.cfg.pace), sleep(900), pick]), waitOrSkip(g.cfg.wait + 9000)]);
+      g.okuriPick = null; $('#field').classList.remove('choosing');
       stopReading();
       el.classList.add('gone'); g.onField.delete(p.no);
-      // 相手陣の札を取った → 自陣の札を1枚送る
-      if (versus() && jinOf(el)) { const sp = sendCard(false); if (sp) setMsg(`${$('#pMsg').textContent}　→ ${sp.no}番の札を相手に送りました`, 'ok'); }
+      if (okuri) { const sp = sendCard(false, g.okuriChosen); if (sp) setMsg(`${sp.no}番の札を相手に送りました`, 'ok'); }
       updateTop();
       await sleep(300);
     })();
