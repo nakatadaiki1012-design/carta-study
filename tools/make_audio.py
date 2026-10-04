@@ -235,6 +235,9 @@ def main(src, out):
         print(no, end=' ', flush=True)
     wav, kumora, total = synth(['なにわづに', 'さくやこのはな', 'ふゆごもり', 'いまをはるべと', 'さくやこのはな'])
     to_mp3(wav, os.path.join(out, 'joka.mp3'))
+    # 序歌の下の句（本番では、序歌のあと下の句をもう一度読んでから1首目に入る）
+    wav, kumora, total = synth(['いまをはるべと', 'さくやこのはな'])
+    to_mp3(wav, os.path.join(out, 'joka_shimo.mp3'))
     with open(os.path.join(out, 'timing.js'), 'w', encoding='utf8') as f:
         f.write('// 読み上げ音声の中で、各句の一音ずつが始まる時刻（秒）。tools/make_audio.py で自動生成\n')
         f.write('const AUDIO_TIMING = ' + json.dumps(timing, separators=(',', ':')) + ';\n')

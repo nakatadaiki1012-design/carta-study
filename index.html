@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>百人一首 道場</title>
+<meta name="description" content="本物風の札と読手風の読み上げで、百人一首を「覚える・取る・早く取る」の3段階で練習できるアプリ。競技かるたの並べ方・送り札・仮想の相手との対戦にも対応。">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -416,6 +417,7 @@
       <div class="btns"><button id="resAgain">もう一度</button><button class="sec" id="resHome">ホームへ</button></div>
     </div>
     <div class="panel">
+      <div id="resTrend"></div>
       <div id="resWeak" style="margin-bottom:14px;"></div>
       <h3 style="margin-top:0;">一枚ずつの記録</h3>
       <div style="overflow-x:auto;"><table class="log" id="resLog"></table></div>
@@ -686,7 +688,13 @@ async function sayShimo(p, pace = 'normal') {
 }
 // 序歌
 async function sayJoka(pace, isSkipped) {
-  if (useReader()) { const r = await playClip('audio/joka.mp3', PACE[pace].audio); if (r !== 'fail') return; readerBroken = true; }
+  if (useReader()) {
+    // 序歌 → 余韻 → 下の句をもう一度（本番の読み方）
+    const r = await playClip('audio/joka.mp3', PACE[pace].audio);
+    if (r === 'ok' && !isSkipped()) { await sleep(700 / PACE[pace].audio); if (!isSkipped()) await playClip('audio/joka_shimo.mp3', PACE[pace].audio); }
+    if (r !== 'fail') return;
+    readerBroken = true;
+  }
   for (const k of ['なにわづに', 'さくやこのはな', 'ふゆごもり', 'いまをはるべと', 'さくやこのはな']) {
     if (isSkipped()) return;
     await speak(k, PACE[pace].rate);
@@ -1391,6 +1399,13 @@ function renderResult(g) {
         <p class="sub" style="margin-bottom:0">タップすると暗記カードで開きます。⚙ 設定の範囲「苦手な歌」でまとめて練習できます。</p>`
     : '<p style="margin:0">まちがえた歌はありません。すばらしい！</p>';
   $$('#resWeak .item').forEach(it => it.onclick = () => openCard(+it.dataset.no));
+  // 早取りの記録の推移（過去20回）
+  if (curMode === 'speed' && tAvg !== null && takes.length >= 3) {
+    const hist = store.get('hist_speed', []);
+    hist.push({ d: Date.now(), avg: +tAvg.toFixed(3), k: kAvg === null ? null : +kAvg.toFixed(3) });
+    store.set('hist_speed', hist.slice(-20));
+    $('#resTrend').innerHTML = trendSVG(hist.slice(-20));
+  } else $('#resTrend').innerHTML = '';
   // 自己ベスト
   if (curMode === 'speed' && tAvg !== null) {
     const bestAvg = store.get('best_speed', null);
@@ -1398,6 +1413,26 @@ function renderResult(g) {
     else $('#resStats').insertAdjacentHTML('beforeend', `<div class="stat"><b>${bestAvg.toFixed(2)}秒</b><span>自己ベスト（平均）</span></div>`);
   }
   show('result');
+}
+// 平均時間の推移グラフ（下に行くほど速い＝上達）
+function trendSVG(h) {
+  if (h.length < 2) return '<p class="sub" style="margin-top:0">もう一度遊ぶと、平均時間の移り変わりがグラフで見られます。</p>';
+  const W = 320, H = 120, L = 34, R = 10, T = 12, B = 22;
+  const v = h.map(x => x.avg), lo = Math.min(...v), hi = Math.max(...v), span = Math.max(hi - lo, 0.1);
+  const X = i => L + (W - L - R) * i / (h.length - 1), Y = a => T + (H - T - B) * (a - lo) / span;
+  const pts = v.map((a, i) => `${X(i).toFixed(1)},${Y(a).toFixed(1)}`).join(' ');
+  const diff = v[v.length - 1] - v[v.length - 2];
+  const note = diff < 0 ? `前回より <b style="color:var(--good)">${(-diff).toFixed(2)}秒 速く</b>なりました` : diff > 0 ? `前回より ${diff.toFixed(2)}秒 おそくなりました` : '前回と同じです';
+  return `<h3 style="margin-top:0;">平均時間の移り変わり（最近${h.length}回）</h3>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:520px;display:block" role="img" aria-label="平均時間の推移">
+      <line x1="${L}" y1="${T}" x2="${W - R}" y2="${T}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <line x1="${L}" y1="${H - B}" x2="${W - R}" y2="${H - B}" stroke="var(--line)" stroke-dasharray="3 3"/>
+      <text x="${L - 4}" y="${T + 4}" text-anchor="end" font-size="10" fill="var(--sub)">${lo.toFixed(2)}</text>
+      <text x="${L - 4}" y="${H - B + 4}" text-anchor="end" font-size="10" fill="var(--sub)">${(lo + span).toFixed(2)}</text>
+      <text x="${W - R}" y="${H - 5}" text-anchor="end" font-size="10" fill="var(--sub)">上ほど速い ／ 左が古く右が新しい</text>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linejoin="round"/>
+      ${v.map((a, i) => `<circle cx="${X(i).toFixed(1)}" cy="${Y(a).toFixed(1)}" r="${i === v.length - 1 ? 4.5 : 2.6}" fill="${i === v.length - 1 ? 'var(--accent)' : 'var(--panel)'}" stroke="var(--accent)" stroke-width="1.5"/>`).join('')}
+    </svg><p class="sub" style="margin:4px 0 14px">${note}（単位：秒）</p>`;
 }
 $('#resAgain').onclick = () => { G = null; openSetup(curMode); };
 $('#resHome').onclick = goHome;

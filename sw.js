@@ -1,7 +1,7 @@
 // オフラインでも使えるようにするための仕組み（Service Worker）
 // アプリ本体は最初に保存し、読み上げ音声は一度聞いたものから保存していく
-const VERSION = 'v3';
-const CORE = ['./', 'index.html', 'data.js', 'portrait.js', 'audio/timing.js', 'manifest.webmanifest', 'icons/icon-192.png', 'audio/joka.mp3'];
+const VERSION = 'v4';
+const CORE = ['./', 'index.html', 'data.js', 'portrait.js', 'audio/timing.js', 'manifest.webmanifest', 'icons/icon-192.png', 'audio/joka.mp3', 'audio/joka_shimo.mp3'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(CORE)).then(() => self.skipWaiting()));
 });
