@@ -355,6 +355,14 @@
             <option value="random">ランダム</option>
             <option value="teii">定位置風（決まり字の短い札を手前に）</option>
           </select></label>
+        <label class="ctl">相手の強さ（相手陣があるとき）
+          <select id="optOpp">
+            <option value="0">相手は取らない（取り逃した札だけ相手へ）</option>
+            <option value="1.6">初心者（決まり字から約1.6秒）</option>
+            <option value="0.9">中級（約0.9秒）</option>
+            <option value="0.55">上級（約0.55秒）</option>
+            <option value="0.32">名人（約0.32秒）</option>
+          </select></label>
         <label class="ctl">暗記時間（札の位置を覚える）
           <select id="optMemo">
             <option value="0">なし</option>
@@ -985,6 +993,7 @@ function openSetup(m) {
   $('#optJoka').checked = saved.joka ?? M.joka;
   $('#optHonban').checked = saved.honban ?? M.honban;
   $('#optCut').checked = saved.cut ?? false;
+  $('#optOpp').value = saved.opp ?? (m === 'speed' ? '0.9' : '0');
   $('#optOrder').value = saved.order ?? M.order;
   $('#optMemo').value = saved.memo ?? M.memo;
   if (n < +$('#optCount').value) $('#setupDesc').textContent += `（いまの範囲は${n}首なので、${n}枚で行います）`;
@@ -994,7 +1003,7 @@ $('#startBtn').onclick = () => {
   const cfg = {
     count: +$('#optCount').value, pace: $('#optPace').value, kara: $('#optKara').checked,
     text: $('#optText').checked, hint: $('#optHint').checked, flip: $('#optFlip').checked, joka: $('#optJoka').checked,
-    honban: $('#optHonban').checked, order: $('#optOrder').value, memo: +$('#optMemo').value, cut: $('#optCut').checked,
+    honban: $('#optHonban').checked, order: $('#optOrder').value, memo: +$('#optMemo').value, cut: $('#optCut').checked, opp: $('#optOpp').value,
   };
   store.set('opt_' + curMode, cfg);
   startGame(Object.assign({}, MODES[curMode], cfg));
@@ -1220,7 +1229,13 @@ async function runGame(g) {
         if (n === kim.length) {
           g.cur.kimAt = performance.now() + 120 / PACE[pace].audio;
           // 決まり字の練習：決まり字を言い終えたところで読み上げを止める
-          if (g.cfg.cut) { const cur = g.cur; setTimeout(() => { if (G === g && g.cur === cur && g.phase === 'reading') stopReading(); }, 380 / PACE[pace].audio); }
+          if (g.cfg.cut) { const cur = g.cur; setTimeout(() => { if (G === g && g.cur === cur && g.phase === 'reading') stopReading(); }, 100 / PACE[pace].audio); }   // 一音（約0.25秒）の終わりぎわで止める
+          // 相手が取りにくる（決まり字から相手の反応時間後。少しばらつかせる）
+          const od = +g.cfg.opp;
+          if (od && versus() && !g.cur.kara) {
+            const cur = g.cur, delay = (od + (Math.random() - 0.4) * od * 0.5) * 1000;
+            setTimeout(() => oppTake(g, cur), Math.max(120, g.cur.kimAt - performance.now() + delay));
+          }
         }
         if (g.cfg.text) line.insertAdjacentText('beforeend', ch);
         else if (n === 1) line.innerHTML = '<span class="sub">🔊 読み上げ中…</span>';
@@ -1264,6 +1279,29 @@ async function runGame(g) {
   }
   if (alive() && versus()) { g.ownLeft = jinCount(false); g.oppLeft = jinCount(true); g.winner = g.ownLeft === 0 ? 'me' : g.oppLeft === 0 ? 'opp' : null; }
   if (alive()) { await sleep(500); endGame(true); }
+}
+// 仮想の相手が札を取る
+function oppTake(g, c) {
+  if (G !== g || g.cur !== c || c.taken || !['reading', 'wait'].includes(g.phase)) return;
+  const el = $(`#field .tori[data-no="${c.p.no}"]`);
+  if (!el || el.classList.contains('gone')) return;
+  if (g.phase === 'wait' && skipWait) skipWait();
+  c.taken = true; c.byOpp = true; g.phase = 'between'; g.lost = (g.lost || 0) + 1;
+  const t = (performance.now() - c.start) / 1000;
+  g.log.push({ p: c.p, kind: 'lost', kim: c.kim, t });
+  stopReading();
+  el.classList.add('reveal');
+  const own = !jinOf(el);
+  setMsg(`相手が取りました（${own ? '自陣' : '相手陣'}の札・決まり字「${c.kim}」）`, 'ng');
+  $('#pLine').innerHTML = `${kamiWithKim(c.p, c.kim)}<span class="shimo">${c.p.shimoKana}</span>`;
+  c.afterTake = (async () => {
+    await Promise.race([Promise.all([sayShimo(c.p, g.cfg.pace), sleep(1200)]), waitOrSkip(g.cfg.wait + 4000)]);
+    stopReading();
+    el.classList.remove('reveal'); el.classList.add('gone'); g.onField.delete(c.p.no);
+    if (own) { const sp = sendCard(true); if (sp) setMsg(`相手が自陣の札を取り、${sp.no}番の札を送ってきました`, 'ng'); }
+    updateTop();
+    await sleep(300);
+  })();
 }
 function onTap(p, el) {
   const g = G;
@@ -1318,21 +1356,21 @@ function renderResult(g) {
   const best = takes.length ? Math.min(...takes.map(l => l.t)) : null;
   const fmt = (x, u = '秒') => x === null ? '—' : x.toFixed(2) + u;
   const stats = [
-    ['取った', `${g.taken} / ${g.field.length}`], ['お手つき', g.ote], ['取れなかった', g.missed],
+    ['取った', `${g.taken} / ${g.field.length}`], ['お手つき', g.ote], [g.lost ? '取れなかった（相手が取った）' : '取れなかった', g.missed + (g.lost || 0)],
     ['平均の時間', fmt(tAvg)], ['いちばん速い', fmt(best)],
   ];
   if (curMode === 'speed') stats.push(['決まり字からの平均', kAvg === null ? '—' : (kAvg >= 0 ? '+' : '') + kAvg.toFixed(2) + '秒']);
   if (g.winner) stats.unshift([g.winner === 'me' ? `自陣の札をなくした（相手陣に${g.oppLeft}枚残し）` : `相手陣が先になくなった（自陣に${g.ownLeft}枚残り）`, g.winner === 'me' ? '勝ち 🎉' : '負け']);
   $('#resStats').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join('');
-  const kindTxt = { take: '<span style="color:var(--good)">取った</span>', miss: '<span style="color:var(--miss)">取れず</span>', kara: '<span class="sub">空札</span>', ote: '<span style="color:var(--miss)">お手つき</span>' };
+  const kindTxt = { lost: '<span style="color:var(--miss)">相手が取った</span>', take: '<span style="color:var(--good)">取った</span>', miss: '<span style="color:var(--miss)">取れず</span>', kara: '<span class="sub">空札</span>', ote: '<span style="color:var(--miss)">お手つき</span>' };
   $('#resLog').innerHTML = '<tr><th>番</th><th>上の句</th><th>決まり字</th><th>結果</th><th>時間</th></tr>' +
     g.log.map(l => `<tr><td>${l.p.no}</td><td>${esc(l.p.kami)}</td><td><b style="color:var(--accent2)">${l.kim}</b></td>
       <td>${kindTxt[l.kind]}${l.kind === 'ote' ? `（${l.wrong.no}番の札）` : ''}</td>
       <td>${l.kind === 'take' ? l.t.toFixed(2) + '秒' + (l.fromKim !== null ? `<br><span class="sub">決${l.fromKim >= 0 ? '+' : ''}${l.fromKim.toFixed(2)}</span>` : '') : ''}</td></tr>`).join('');
   // よく取れた歌は「覚えた」に。成績を記録し、まちがえた歌を復習できるようにする
   takes.forEach(l => memorized.add(l.p.no)); saveMem();
-  g.log.forEach(l => { if (l.kind === 'take') addRecord(l.p.no, true); else if (l.kind === 'miss' || l.kind === 'ote') addRecord(l.p.no, false); });
-  const bad = [...new Map(g.log.filter(l => l.kind === 'miss' || l.kind === 'ote').map(l => [l.p.no, l.p])).values()];
+  g.log.forEach(l => { if (l.kind === 'take') addRecord(l.p.no, true); else if (['miss', 'ote', 'lost'].includes(l.kind)) addRecord(l.p.no, false); });
+  const bad = [...new Map(g.log.filter(l => ['miss', 'ote', 'lost'].includes(l.kind)).map(l => [l.p.no, l.p])).values()];
   $('#resWeak').innerHTML = bad.length
     ? `<h3 style="margin-top:0;">復習したい歌（${bad.length}首）</h3><div class="list">${bad.map(p => `
         <div class="item" data-no="${p.no}"><div class="n">${p.no}</div><div><div class="t">${kamiWithKim(p)}</div>

@@ -60,6 +60,7 @@ KU_HOLD = 0.55        # 句の終わりをのばす長さ
 PAUSE = 0.32          # 句と句の間
 FINAL_HOLD = 1.45     # 上の句・下の句の最後の余韻
 ACCENT_KEEP = 0.2    # 元の抑揚をどれだけ残すか（0=完全に一定）
+TARGET_DB = -17.0      # 声の部分の平均の強さ（dBFS）。すべての音声でそろえる
 BASE_HZ = 255         # 読む声の高さ（Hz）。すべての歌で同じ高さにそろえる
 
 def synth(kus, final_hold=FINAL_HOLD):
@@ -202,8 +203,15 @@ def synth(kus, final_hold=FINAL_HOLD):
     return wav, kumora, total
 
 def to_mp3(wav, path):
-    peak = np.max(np.abs(wav)) or 1
-    pcm = (wav / peak * 0.89 * 32767).astype('<i2').tobytes()
+    # 聞こえる大きさでそろえる：声が出ている部分（大きいほう半分）の平均の強さを一定にする
+    x = wav / (np.max(np.abs(wav)) or 1)
+    hop = int(SR * 0.02)
+    fr = np.array([np.sqrt(np.mean(x[i:i + hop] ** 2)) for i in range(0, len(x) - hop, hop)])
+    loud = np.sort(fr)[len(fr) // 2:]
+    rms = float(np.sqrt(np.mean(loud ** 2))) or 1e-6
+    x = x * (10 ** (TARGET_DB / 20) / rms)
+    x = np.tanh(x * 1.1) / np.tanh(1.1) * 0.93 if np.max(np.abs(x)) > 0.9 else x   # 大きすぎる所はやわらかく抑える
+    pcm = (np.clip(x, -1, 1) * 32767).astype('<i2').tobytes()
     subprocess.run(['ffmpeg', '-loglevel', 'error', '-y', '-f', 's16le', '-ar', str(SR), '-ac', '1', '-i', '-',
                     '-af', 'highpass=f=70,aecho=0.85:0.4:38|61:0.10|0.06,afade=t=out:st=%.2f:d=0.35' % (len(wav) / SR - 0.4),
                     '-ar', '24000', '-c:a', 'libmp3lame', '-b:a', '48k', path], input=pcm, check=True)
