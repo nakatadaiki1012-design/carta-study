@@ -210,6 +210,15 @@
   dialog h3{margin:0 0 12px;}
   .row{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; margin-bottom:12px;}
 
+  /* 小さい画面の対戦中は、見出しを隠して読み上げ欄を細くし、畳を広く使う */
+  @media (max-width:560px), (max-height:560px){
+    body.playing header{display:none;}
+    body.playing .wrap{padding-top:6px;}
+    body.playing .reader{padding:6px 10px; margin-bottom:6px;}
+    body.playing .reader .line{font-size:1.15rem; min-height:1.3em;}
+    body.playing .reader .msg{font-size:.85rem; min-height:1.2em;}
+    body.playing .tatami{padding:10px 8px 14px; border-width:4px;}
+  }
   @media (max-width:560px){
     header h1 small{display:none;}
     .flash{grid-template-columns:1fr 1fr; gap:12px;}
@@ -395,7 +404,7 @@
       <div class="line" id="pLine"></div>
       <div class="msg" id="pMsg"></div>
     </div>
-    <p class="rotate-tip" id="rotateTip" hidden>📱 スマホを横向きにすると札が大きくなります</p>
+    <p class="rotate-tip" id="rotateTip" hidden>📱 札が小さいときは、準備画面で札の枚数を25枚にすると大きく表示されます（50枚はタブレット・PC向け）</p>
     <div class="tatami" id="field"></div>
   </section>
 
@@ -689,6 +698,7 @@ async function sayJoka(pace, isSkipped) {
 const SECTIONS = ['home', 'learn', 'setup', 'play', 'result'];
 function show(id) {
   SECTIONS.forEach(s => $('#' + s).classList.toggle('hidden', s !== id));
+  document.body.classList.toggle('playing', id === 'play');
   $('#backBtn').hidden = id === 'home';
   window.scrollTo(0, 0);
 }
@@ -984,7 +994,9 @@ function openSetup(m) {
   $('#setupTitle').textContent = M.title; $('#setupDesc').textContent = M.desc;
   const n = rangePoems().length;
   $('#optCount').innerHTML = M.counts.map(c => `<option value="${c}">${c}枚</option>`).join('');
-  $('#optCount').value = saved.count || M.count;
+  // スマホなど小さい画面では、札が大きく見える25枚を最初の枚数にする
+  const small = Math.min(window.innerWidth, window.innerHeight) < 600;
+  $('#optCount').value = saved.count || (small && m === 'speed' ? 25 : M.count);
   $('#optPace').value = saved.pace || M.pace;
   $('#optKara').checked = saved.kara ?? M.kara;
   $('#optText').checked = saved.text ?? M.text;
@@ -1116,9 +1128,10 @@ function sizeField() {
   box.classList.toggle('hints', !!G.cfg.hint);
   box.style.setProperty('--cw', cw + 'px');
   box.style.setProperty('--rowgap', Math.max(G.cfg.hint ? 16 : 8, Math.round(cw * 0.22)) + 'px');
-  $('#rotateTip').hidden = !(cw < 44 && window.innerHeight > window.innerWidth);
+  $('#rotateTip').hidden = !(cw < 44);
 }
 window.addEventListener('resize', () => { if (G && !$('#play').classList.contains('hidden')) sizeField(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { if (G && !$('#play').classList.contains('hidden')) sizeField(); }, 300));
 // 決まり字の変化：まだ読まれていない歌の中で決まり字を計算しなおす
 function unreadPool() { return G.queue.slice(Math.max(G.i, 0)); }
 function updateHints() {
